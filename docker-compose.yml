@@ -1,0 +1,55 @@
+# Card Management System - Local Docker deployment
+# Usage:
+#   1. Set Oracle DB URL (see below) or use external Oracle 19c.
+#   2. docker compose -p cms up -d
+#   3. Backend (container name: CMS): http://localhost:8080
+#   4. Frontend: http://localhost:3000
+#
+# Build: docker compose -p cms build
+# Run:   docker compose -p cms up -d
+
+services:
+  # Spring Boot REST API - container name: CMS
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: cms-backend:latest
+    container_name: CMS
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:oracle:thin:@host.docker.internal:1521/ORCL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-cms}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-production}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      APP_DEFAULT_APP_ID: ${APP_DEFAULT_APP_ID:-CMS}
+      # Export files (bureau feed) written here on approve-and-generate; downloadable from card view
+      CMS_CARD_EXPORT_OUTPUT_DIR: /app/export
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      # Use a lightweight unauthenticated GET endpoint for health.
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/swagger-ui/index.html || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  # Next.js frontend - connects to backend via browser (use backend URL on host)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+    image: cms-frontend:latest
+    container_name: CMS-Frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped

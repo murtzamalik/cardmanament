@@ -1,0 +1,37 @@
+# Card Management System - Backend (Spring Boot)
+# Build from repository root: docker build -f Dockerfile.backend -t cms-backend .
+
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
+WORKDIR /app
+
+# Copy parent POM and all module POMs
+COPY pom.xml .
+COPY dal-service/pom.xml dal-service/
+COPY common-service/pom.xml common-service/
+COPY business-service/pom.xml business-service/
+COPY core-service/pom.xml core-service/
+
+# Download dependencies (no source yet -> only deps)
+RUN mvn dependency:go-offline -B -q || true
+
+# Copy source and build
+COPY dal-service dal-service/
+COPY common-service common-service/
+COPY business-service business-service/
+COPY core-service core-service/
+
+RUN mvn -q -B package -pl core-service -am -DskipTests
+
+# Runtime image
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+
+RUN adduser -D -u 1000 cms
+RUN mkdir -p /app/export && chown 1000:1000 /app/export
+USER cms
+
+COPY --from=build /app/core-service/target/core-service-*.jar app.jar
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "app.jar"]

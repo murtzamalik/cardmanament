@@ -1,0 +1,20 @@
+package com.cms.business.manager;
+
+import com.cms.common.enums.ResponseCodeEnum;
+import com.cms.common.model.IProcessMessage;
+import com.cms.common.service.ResponseHelperService;
+import org.springframework.stereotype.Service;
+
+import java.util.Collections;
+
+@Service
+public class DenominationManager extends AbstractManagerStub {
+    public DenominationManager(ResponseHelperService responseHelper) { super(responseHelper); }
+
+    @Override
+    protected boolean dispatch(String methodName, IProcessMessage req, IProcessMessage res) {
+        if ("SearchDenomination".equals(methodName)) { res.setMsgObjArray(Collections.singletonMap("list", Collections.emptyList())); res.setSuccess(true); responseHelper.setResponse(res, ResponseCodeEnum.Success); return true; }
+        if ("UpdateRecord".equals(methodName)) { res.setSuccess(true); responseHelper.setResponse(res, ResponseCodeEnum.Success); return true; }
+        return super.dispatch(methodName, req, res);
+    }
+}

@@ -1,0 +1,16 @@
+# Backend build context (root Dockerfile.backend)
+frontend/
+.git
+.gitignore
+*.md
+.env*
+.DS_Store
+target/
+*.iml
+.idea
+*.log
+migration-spec/
+docs/
+
+# Frontend build context (frontend/Dockerfile) - use frontend/.dockerignore if needed
+# This .dockerignore applies when building from root; frontend build uses context ./frontend

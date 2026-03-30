@@ -1,0 +1,61 @@
+# Card Management System - REST API
+spring:
+  application:
+    name: card-management-system
+  datasource:
+    url: jdbc:oracle:thin:@//58.65.160.27:1521/ladb
+    username: CMSJ
+    password: "CMSJ"
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 10
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+app:
+  default-app-id: CMS
+  date-format: "dd/MM/yyyy HH:mm:ss"
+  cors:
+    allowed-origins: "http://localhost:3000,http://127.0.0.1:3000"
+
+jwt:
+  secret: your-256-bit-secret-key-here-change-in-production
+  expiration-ms: 86400000
+
+# PCI DSS: encryption for cardholder data at rest (PAN, CVV, etc.)
+# Key: 32 bytes (256 bits). Use hex (64 chars) or base64. In production set CARD_ENCRYPTION_KEY env.
+cms:
+  card:
+    encryption-key: ""
+    encryption-key-env: CARD_ENCRYPTION_KEY
+    hash-salt: "cms-pan-salt"
+    encryption-optional: true
+    # When true, use dummy CVV/track values (no HSM). Set false and add HsmCvvGenerationService when HSM is available.
+    dummy-hsm: true
+    # Export file (bureau feed) when card request is approved-and-generated. Leave output-dir blank to disable.
+    export:
+      output-dir: ""
+      filename-pattern: "card_export_{date}_{requestId}.txt"
+      include-pan: false
+      format: PAN_LIST
+      external-command: ""
+
+logging:
+  level:
+    com.cms: INFO
+    org.springframework.security: INFO
+
+server:
+  port: 8080
