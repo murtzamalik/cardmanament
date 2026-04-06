@@ -2,8 +2,8 @@
 # Usage:
 #   1. Set Oracle DB URL (see below) or use external Oracle 19c.
 #   2. docker compose -p cms up -d
-#   3. Backend (container name: CMS): http://localhost:8080
-#   4. Frontend: http://localhost:3000
+#   3. Backend (container name: CMS): http://localhost:7070
+#   4. Frontend: http://localhost:7071
 #
 # Build: docker compose -p cms build
 # Run:   docker compose -p cms up -d
@@ -17,7 +17,7 @@ services:
     image: cms-backend:latest
     container_name: CMS
     ports:
-      - "8080:8080"
+      - "7070:8080"
     environment:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:oracle:thin:@host.docker.internal:1521/ORCL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-cms}
@@ -44,11 +44,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:7070}
     image: cms-frontend:latest
     container_name: CMS-Frontend
     ports:
-      - "3000:3000"
+      - "7071:3000"
     depends_on:
       backend:
         condition: service_started
