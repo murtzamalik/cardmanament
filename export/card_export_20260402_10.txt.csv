@@ -1,2 +1,0 @@
-request_id,card_id,pan_last4,card_title,product_code,card_type_code,branch_code,expiry_date,relationship_num,issued_date,activation_date,generated_at,track1_data,track2_data,cvv2,icvv
-10,10,68db,ZZZ,DEBIT,DEBIT_STD,MAIN,2031-04-02T13:06:45.3046343,900,2026-04-02T13:06:45.3046343,,2026-04-02T13:06:45.3714694,%BPAN-10-fbd268db^/ZZZ                      ^3104226000000000000000111000000?,;PAN-10-fbd268db=31042260000011100000?,222,333
