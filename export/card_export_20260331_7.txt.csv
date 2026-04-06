@@ -1,0 +1,2 @@
+request_id,card_id,pan_last4,card_title,product_code,card_type_code,branch_code,expiry_date,relationship_num,issued_date,activation_date,generated_at
+7,7,ecd5,TESTING,DEBIT,Test,MAIN,2031-03-31T17:25:29.1134359,001,2026-03-31T17:25:29.1134359,,2026-03-31T17:25:29.1890406

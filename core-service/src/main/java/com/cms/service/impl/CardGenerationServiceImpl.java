@@ -122,6 +122,7 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         req.setPrimaryPan(generatedPan);
         req.setUpdatedOn(LocalDateTime.now());
         cardRequestRepository.save(req);
+        //Format Setting here.
 
         String accountNum = req.getAccountNum();
         if (accountNum != null && !accountNum.isBlank()) {

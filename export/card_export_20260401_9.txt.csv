@@ -1,0 +1,2 @@
+request_id,card_id,pan_last4,card_title,product_code,card_type_code,branch_code,expiry_date,relationship_num,issued_date,activation_date,generated_at,track1_data,track2_data,cvv2,icvv
+9,9,d367,GONDAL,CREDIT,CREDIT_STD,MAIN,2031-04-01T21:18:31.2054416,121,2026-04-01T21:18:31.2054416,,2026-04-01T21:18:31.3284309,%BPAN-9-79afd367^/GONDAL                   ^3104226000000000000000111000000?,;PAN-9-79afd367=31042260000011100000?,222,333

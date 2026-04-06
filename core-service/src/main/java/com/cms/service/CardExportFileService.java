@@ -13,6 +13,7 @@ import java.nio.file.Paths;
 import java.util.Optional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64; // Rizwan Adds this line for format change
 import java.util.Locale;
 
 /**
@@ -92,6 +93,16 @@ public class CardExportFileService {
                 }
             }
 
+            // Added this code for Bureau file in export folder
+            if ("BUREAU".equals(format)) {
+                String bureauFileName = baseName.endsWith(".txt") ? baseName : baseName + ".txt";
+                Path bureauPath = dir.resolve(bureauFileName);
+                writeBureauFormat(card, requestId, bureauPath);
+                if (primaryPath == null) {
+                    primaryPath = bureauPath.toAbsolutePath().toString();
+                }
+            }
+
             if (primaryPath != null && !externalCommand.isBlank()) {
                 runExternalCommand(primaryPath);
             }
@@ -120,40 +131,120 @@ public class CardExportFileService {
         }
         return "";
     }
+    //For format setting have to write code here below in writeScv Method
 
-    private void writeCsv(Card card, Long requestId, Path path) throws IOException {
-        String header = "request_id,card_id,pan_last4,card_title,product_code,card_type_code,branch_code,expiry_date,relationship_num,issued_date,activation_date,generated_at";
-        String expiry = card.getExpiryDate() != null ? card.getExpiryDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
-        String issued = card.getIssuedDate() != null ? card.getIssuedDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
-        String activation = card.getActivationDate() != null ? card.getActivationDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
-        String last4 = card.getPanLast4() != null ? card.getPanLast4() : "";
-        Long cardId = card.getCardId();
-        String line = String.format("%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
-                requestId,
-                cardId != null ? cardId : "",
-                escapeCsv(last4),
-                escapeCsv(card.getCardTitle()),
-                escapeCsv(card.getProductCode()),
-                escapeCsv(card.getCardTypeCode()),
-                escapeCsv(card.getBranchCode()),
-                expiry,
-                escapeCsv(card.getRelationshipNum()),
-                issued,
-                activation,
-                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        Files.writeString(path, header + "\n" + line + "\n", StandardCharsets.UTF_8);
-    }
+//    private void writeCsv(Card card, Long requestId, Path path) throws IOException {
+//        // Rizwan Adds this line for format change
+//        String header = "request_id,card_id,pan_last4,card_title,product_code,card_type_code,branch_code,expiry_date,relationship_num,issued_date,activation_date,generated_at,track1_data,track2_data,cvv2,icvv";
+//        String expiry = card.getExpiryDate() != null ? card.getExpiryDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
+//        String issued = card.getIssuedDate() != null ? card.getIssuedDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
+//        String activation = card.getActivationDate() != null ? card.getActivationDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
+//        String last4 = card.getPanLast4() != null ? card.getPanLast4() : "";
+//        Long cardId = card.getCardId();
+//
+//        // Rizwan Adds this line for format change - decode track and CVV fields from Base64
+//        String track1 = card.getTrack1Data() != null ? new String(Base64.getDecoder().decode(card.getTrack1Data()), StandardCharsets.UTF_8) : "";
+//        String track2 = card.getTrack2Data() != null ? new String(Base64.getDecoder().decode(card.getTrack2Data()), StandardCharsets.UTF_8) : ""; // Rizwan Adds this line for format change
+//        String cvv2   = card.getCvv2()       != null ? new String(Base64.getDecoder().decode(card.getCvv2()),       StandardCharsets.UTF_8) : ""; // Rizwan Adds this line for format change
+//        String icvv   = card.getIcvv()       != null ? new String(Base64.getDecoder().decode(card.getIcvv()),       StandardCharsets.UTF_8) : ""; // Rizwan Adds this line for format change
+//
+//        // Rizwan Adds this line for format change - added 4 new fields to format string
+//        String line = String.format("%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
+//                requestId,
+//                cardId != null ? cardId : "",
+//                escapeCsv(last4),
+//                escapeCsv(card.getCardTitle()),
+//                escapeCsv(card.getProductCode()),
+//                escapeCsv(card.getCardTypeCode()),
+//                escapeCsv(card.getBranchCode()),
+//                expiry,
+//                escapeCsv(card.getRelationshipNum()),
+//                issued,
+//                activation,
+//                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+//                escapeCsv(track1),  // Rizwan Adds this line for format change
+//                escapeCsv(track2),  // Rizwan Adds this line for format change
+//                escapeCsv(cvv2),    // Rizwan Adds this line for format change
+//                escapeCsv(icvv));   // Rizwan Adds this line for format change
+//
+//        Files.writeString(path, header + "\n" + line + "\n", StandardCharsets.UTF_8);
+//    }
+private void writeCsv(Card card, Long requestId, Path path) throws IOException {
+    String header = "request_id,card_id,pan_last4,card_title,product_code,card_type_code,branch_code,expiry_date,relationship_num,issued_date,activation_date,generated_at";
+    String expiry = card.getExpiryDate() != null ? card.getExpiryDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
+    String issued = card.getIssuedDate() != null ? card.getIssuedDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
+    String activation = card.getActivationDate() != null ? card.getActivationDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
+    String last4 = card.getPanLast4() != null ? card.getPanLast4() : "";
+    Long cardId = card.getCardId();
+    String line = String.format("%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
+            requestId,
+            cardId != null ? cardId : "",
+            escapeCsv(last4),
+            escapeCsv(card.getCardTitle()),
+            escapeCsv(card.getProductCode()),
+            escapeCsv(card.getCardTypeCode()),
+            escapeCsv(card.getBranchCode()),
+            expiry,
+            escapeCsv(card.getRelationshipNum()),
+            issued,
+            activation,
+            LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+    Files.writeString(path, header + "\n" + line + "\n", StandardCharsets.UTF_8);
+}
 
-    private static String escapeCsv(String value) {
-        if (value == null) return "";
+    private static String escapeCsv(String value) {        if (value == null) return "";
         if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
         return value;
     }
 
-    private void runExternalCommand(String filePath) {
-        try {
+    // Added this method for format change of export file
+    private void writeBureauFormat(Card card, Long requestId, Path path) throws IOException {
+        String track1 = card.getTrack1Data() != null ? new String(Base64.getDecoder().decode(card.getTrack1Data()), StandardCharsets.UTF_8) : "";
+        String track2 = card.getTrack2Data() != null ? new String(Base64.getDecoder().decode(card.getTrack2Data()), StandardCharsets.UTF_8) : "";
+        String cvv2 = card.getCvv2() != null ? new String(Base64.getDecoder().decode(card.getCvv2()), StandardCharsets.UTF_8) : "";
+        String icvv = card.getIcvv() != null ? new String(Base64.getDecoder().decode(card.getIcvv()), StandardCharsets.UTF_8) : "";
+        String pan = resolvePan(card);
+        if (pan == null) pan = card.getPanLast4() != null ? "************" + card.getPanLast4() : "";
+        String panFormatted = formatPanWithSpaces(pan);
+        String issueYear = card.getIssuedDate() != null ? card.getIssuedDate().format(DateTimeFormatter.ofPattern("yy")) : "";
+        String expiryMMYY = card.getExpiryDate() != null ? card.getExpiryDate().format(DateTimeFormatter.ofPattern("MM/yy")) : "";
+        String cardTitle = card.getCardTitle() != null ? card.getCardTitle() : "";
+        String seqNum = String.format("%06d", requestId);
+        String relNum = padRelationshipNum(card.getRelationshipNum());
+        String line = seqNum
+                + "\"" + panFormatted + "\""
+                + "    "
+                + issueYear
+                + "     "
+                + expiryMMYY
+                + "   "
+                + "\"*\"" + cardTitle + "\""
+                + cardTitle + "!:" + panFormatted
+                + " " + cvv2
+                + track1
+                + track2
+                + relNum
+                + icvv;
+        Files.writeString(path, line + "\n", StandardCharsets.UTF_8);
+    }
+
+    // Added this method for (Spaces in between primary account number , 4 digits then space etc)
+    private String formatPanWithSpaces(String pan) {
+        if (pan == null || pan.length() < 16) return pan != null ? pan : "";
+        return pan.substring(0, 4) + " " + pan.substring(4, 8) + " " + pan.substring(8, 12) + " " + pan.substring(12, 16);
+    }
+
+    // Added this method for (it will gives Rel num into 16 digits if 0 there 16 zeros if 123 then 000000----0123 like this)
+    private String padRelationshipNum(String rel) {
+        if (rel == null || rel.isBlank()) return String.format("%16s", "").replace(' ', '0');
+        rel = rel.trim();
+        if (rel.matches("\\d+")) return String.format("%016d", Long.parseLong(rel));
+        return String.format("%-16s", rel).substring(0, 16);
+    }
+
+    private void runExternalCommand(String filePath) {        try {
             ProcessBuilder pb = new ProcessBuilder(externalCommand, filePath);
             pb.redirectErrorStream(true);
             Process p = pb.start();
