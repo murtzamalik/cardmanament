@@ -26,7 +26,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
-import java.util.UUID;
+import java.time.YearMonth;
+import java.util.Random; // Modified this code for PAN generation
+
 
 @Service
 public class CardGenerationServiceImpl implements CardGenerationService {
@@ -85,17 +87,24 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         }
         Card card = new Card();
         card.setRelationshipNum(req.getRelationshipNum());
-        card.setCardTitle(req.getCardTitle());
+        // Modified code for setting title to 19 chars
+        String rawTitle = req.getCardTitle() != null ? req.getCardTitle().trim() : "";
+        card.setCardTitle(String.format("%-19s", rawTitle));
         card.setCardTypeCode(req.getCardTypeCode());
         card.setProductCode(req.getProductCode());
         card.setBranchCode(req.getBranchCode());
-        String generatedPan = "PAN-" + requestId + "-" + UUID.randomUUID().toString().substring(0, 8).replace("-", "");
+
+        // Modified this code for PAN generation
+        String generatedPan = generatePan(req.getCardTypeId(), req.getCardTypeCode());
+        // Modified this code for PAN generation
         card.setPan(generatedPan);
         card.setPanEncrypted(encryptionService.encrypt(generatedPan));
         card.setPanLast4(encryptionService.panLast4(generatedPan));
         card.setPanHash(encryptionService.panHashForLookup(generatedPan));
         card.setTrimPan(generatedPan);
-        card.setExpiryDate(LocalDateTime.now().plusYears(5));
+        YearMonth expiryMonth = YearMonth.now().plusYears(5);
+        card.setExpiryDate(expiryMonth.atEndOfMonth().atTime(23, 59, 59));
+        //card.setExpiryDate(LocalDateTime.now().plusYears(5));
         card.setCardStatusCode("ACTIVE");
         card.setCreatedOn(LocalDateTime.now());
         card.setUpdatedOn(LocalDateTime.now());
@@ -104,6 +113,7 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         card.setIsReplaced(0);
         card.setIssuedDate(LocalDateTime.now());
         card.setActivationDate(null);
+
 
         String expiryYyMm = card.getExpiryDate().format(EXPIRY_YYMM);
         CvvGenerationService.CvvResult cvvResult = cvvGenerationService.generate(generatedPan, expiryYyMm);
@@ -158,6 +168,53 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         if (value == null) return null;
         return Base64.getEncoder().encodeToString(value.getBytes(StandardCharsets.UTF_8));
     }
+
+    // Modified this code for PAN generation
+    private String generatePan(Long cardTypeId, String cardTypeCode) {
+        // Get BIN from CardType — fallback to 900419 if not found
+        int bin = 900419;
+        if (cardTypeId != null) {
+            var cardType = cardTypeRepository.findById(cardTypeId).orElse(null);
+            if (cardType != null && cardType.getBin() != null) {
+                bin = cardType.getBin();
+            }
+        } else if (cardTypeCode != null) {
+            var cardType = cardTypeRepository.findByCardTypeCode(cardTypeCode).orElse(null);
+            if (cardType != null && cardType.getBin() != null) {
+                bin = cardType.getBin();
+            }
+        }
+        // BIN padded to 6 digits
+        String binStr = String.format("%06d", bin);
+        // Generate 9 random numeric digits
+        Random random = new Random();
+        StringBuilder middle = new StringBuilder();
+        for (int i = 0; i < 9; i++) {
+            middle.append(random.nextInt(10));
+        }
+        // 15 digits = BIN(6) + middle(9)
+        String pan15 = binStr + middle;
+        // Calculate Luhn check digit
+        int luhn = calculateLuhnDigit(pan15);
+        return pan15 + luhn;
+    }
+
+    // Modified this code for PAN generation — Luhn algorithm check digit
+    private int calculateLuhnDigit(String pan15) {
+        int sum = 0;
+        boolean alternate = true;
+        for (int i = pan15.length() - 1; i >= 0; i--) {
+            int n = Integer.parseInt(String.valueOf(pan15.charAt(i)));
+            if (alternate) {
+                n *= 2;
+                if (n > 9) n -= 9;
+            }
+            sum += n;
+            alternate = !alternate;
+        }
+        return (10 - (sum % 10)) % 10;
+    }
+    // Modified this code for PAN generation
 
     @Override
     @Transactional

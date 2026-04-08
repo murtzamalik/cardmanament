@@ -131,44 +131,7 @@ public class CardExportFileService {
         }
         return "";
     }
-    //For format setting have to write code here below in writeScv Method
 
-//    private void writeCsv(Card card, Long requestId, Path path) throws IOException {
-//        // Rizwan Adds this line for format change
-//        String header = "request_id,card_id,pan_last4,card_title,product_code,card_type_code,branch_code,expiry_date,relationship_num,issued_date,activation_date,generated_at,track1_data,track2_data,cvv2,icvv";
-//        String expiry = card.getExpiryDate() != null ? card.getExpiryDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
-//        String issued = card.getIssuedDate() != null ? card.getIssuedDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
-//        String activation = card.getActivationDate() != null ? card.getActivationDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
-//        String last4 = card.getPanLast4() != null ? card.getPanLast4() : "";
-//        Long cardId = card.getCardId();
-//
-//        // Rizwan Adds this line for format change - decode track and CVV fields from Base64
-//        String track1 = card.getTrack1Data() != null ? new String(Base64.getDecoder().decode(card.getTrack1Data()), StandardCharsets.UTF_8) : "";
-//        String track2 = card.getTrack2Data() != null ? new String(Base64.getDecoder().decode(card.getTrack2Data()), StandardCharsets.UTF_8) : ""; // Rizwan Adds this line for format change
-//        String cvv2   = card.getCvv2()       != null ? new String(Base64.getDecoder().decode(card.getCvv2()),       StandardCharsets.UTF_8) : ""; // Rizwan Adds this line for format change
-//        String icvv   = card.getIcvv()       != null ? new String(Base64.getDecoder().decode(card.getIcvv()),       StandardCharsets.UTF_8) : ""; // Rizwan Adds this line for format change
-//
-//        // Rizwan Adds this line for format change - added 4 new fields to format string
-//        String line = String.format("%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
-//                requestId,
-//                cardId != null ? cardId : "",
-//                escapeCsv(last4),
-//                escapeCsv(card.getCardTitle()),
-//                escapeCsv(card.getProductCode()),
-//                escapeCsv(card.getCardTypeCode()),
-//                escapeCsv(card.getBranchCode()),
-//                expiry,
-//                escapeCsv(card.getRelationshipNum()),
-//                issued,
-//                activation,
-//                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-//                escapeCsv(track1),  // Rizwan Adds this line for format change
-//                escapeCsv(track2),  // Rizwan Adds this line for format change
-//                escapeCsv(cvv2),    // Rizwan Adds this line for format change
-//                escapeCsv(icvv));   // Rizwan Adds this line for format change
-//
-//        Files.writeString(path, header + "\n" + line + "\n", StandardCharsets.UTF_8);
-//    }
 private void writeCsv(Card card, Long requestId, Path path) throws IOException {
     String header = "request_id,card_id,pan_last4,card_title,product_code,card_type_code,branch_code,expiry_date,relationship_num,issued_date,activation_date,generated_at";
     String expiry = card.getExpiryDate() != null ? card.getExpiryDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
@@ -223,6 +186,7 @@ private void writeCsv(Card card, Long requestId, Path path) throws IOException {
                 + "\"*\"" + cardTitle + "\""
                 + cardTitle + "!:" + panFormatted
                 + " " + cvv2
+                + "<"
                 + track1
                 + track2
                 + relNum
