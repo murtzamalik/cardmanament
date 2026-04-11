@@ -32,6 +32,17 @@ export interface CardUpdateRequest {
   cardTitle?: string;
 }
 
+/** Body for POST /api/cards/expiry-search (maps to Java LocalDate). */
+export interface ExpirySearchRequest {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+/** Body for POST /api/cards/{id}/change-card-type */
+export interface ChangeCardTypeRequest {
+  cardTypeId: number;
+}
+
 export interface CardSearchRequest {
   pan?: string;
   relationshipNum?: string;

@@ -1,9 +1,6 @@
 package com.cms.service;
 
-import com.cms.dto.request.CardSearchRequest;
-import com.cms.dto.request.CardUpdateRequest;
-import com.cms.dto.request.LinkCardAccountRequest;
-import com.cms.dto.request.LinkCardAccountByCardIdRequest;
+import com.cms.dto.request.*;
 import com.cms.dto.response.*;
 
 import java.util.List;
@@ -44,4 +41,14 @@ public interface CardService {
     void closeCard(Long cardId);
 
     CustomerInfoResponse getCustomerByRelation(String rel, String linked, Long cardId);
+
+    List<CardResponse> searchByExpiryDate(ExpirySearchRequest request);
+
+    void changeCardType(Long cardId, ChangeCardTypeRequest request);
+
+    Long replacementRequest(Long cardId);
+
+
+
+
 }

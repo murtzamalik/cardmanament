@@ -49,6 +49,17 @@ function createApiClient(onUnauthorized: () => void): IApiClient {
       if (status === 401) {
         onUnauthorized();
       }
+      const body = err.response?.data;
+      const msg =
+        body &&
+        typeof body === 'object' &&
+        'message' in body &&
+        typeof (body as ApiResponse<unknown>).message === 'string'
+          ? (body as ApiResponse<unknown>).message
+          : null;
+      if (msg && msg.length > 0) {
+        return Promise.reject(new Error(msg));
+      }
       return Promise.reject(err);
     }
   );

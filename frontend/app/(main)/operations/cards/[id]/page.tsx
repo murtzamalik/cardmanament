@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from 'primereact/button';
 import { Column } from 'primereact/column';
 import { DataTable } from 'primereact/datatable';
@@ -13,10 +13,13 @@ import * as CardService from '@/services/cards/CardService';
 import { AppDialog, ConfirmActionDialog, FormSection, FormField } from '@/components/ui';
 import { CardVisual } from '@/components/cards/CardVisual';
 import type { Card, CardAccountLink } from '@/types/card';
+import { CARD_RETURN_FROM_PARAM, safeReturnPath } from '@/lib/constants';
 
 export default function CardDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const backPath = safeReturnPath(searchParams.get(CARD_RETURN_FROM_PARAM));
   const toast = useRef<Toast>(null);
   const queryClient = useQueryClient();
   const cardId = params?.id != null ? Number(params.id) : NaN;
@@ -89,7 +92,7 @@ export default function CardDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['cards-search'] });
       toast.current?.show({ severity: 'success', summary: 'Success', detail: 'Card closed', life: 3000 });
       setCloseDialogOpen(false);
-      router.push('/operations/cards');
+      router.push(backPath);
     },
     onError: (e: Error) => toast.current?.show({ severity: 'error', summary: 'Error', detail: e.message, life: 5000 }),
   });
@@ -159,7 +162,7 @@ export default function CardDetailPage() {
       <div className="card">
         <Toast ref={toast} />
         <p className="text-color-secondary">Card not found.</p>
-        <Button label="Back to cards" icon="pi pi-arrow-left" text onClick={() => router.push('/operations/cards')} />
+        <Button label="Back" icon="pi pi-arrow-left" text onClick={() => router.push(backPath)} />
       </div>
     );
   }
@@ -177,7 +180,7 @@ export default function CardDetailPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button label="Back" icon="pi pi-arrow-left" text onClick={() => router.push('/operations/cards')} />
+          <Button label="Back" icon="pi pi-arrow-left" text onClick={() => router.push(backPath)} />
           {!isClosed && (
             <>
               <Button label="Edit" icon="pi pi-pencil" onClick={openEdit} />

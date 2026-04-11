@@ -2,10 +2,7 @@ package com.cms.service.impl;
 
 import com.cms.dal.entity.*;
 import com.cms.dal.repository.*;
-import com.cms.dto.request.CardSearchRequest;
-import com.cms.dto.request.CardUpdateRequest;
-import com.cms.dto.request.LinkCardAccountRequest;
-import com.cms.dto.request.LinkCardAccountByCardIdRequest;
+import com.cms.dto.request.*;
 import com.cms.dto.response.*;
 import com.cms.exception.BusinessValidationException;
 import com.cms.exception.ResourceNotFoundException;
@@ -13,12 +10,16 @@ import com.cms.mapper.BranchMapper;
 import com.cms.mapper.CardMapper;
 import com.cms.service.CardDataEncryptionService;
 import com.cms.service.CardService;
+import com.cms.service.NewCardRequestService;
 import com.cms.spec.CardSpecification;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.cms.dal.entity.CardRequest;
+import java.util.List;
+
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -38,12 +39,14 @@ public class CardServiceImpl implements CardService {
     private final BranchMapper branchMapper;
     private final LimitProfileRepository limitProfileRepository;
     private final CardDataEncryptionService encryptionService;
+    private final NewCardRequestService newCardRequestService;
+
 
     public CardServiceImpl(CardRepository cardRepository, CardAccountRepository cardAccountRepository,
                            CardStatusRepository cardStatusRepository, CardTypeRepository cardTypeRepository,
                            CardProductRepository cardProductRepository, BranchRepository branchRepository,
                            AccountRepository accountRepository, CardMapper cardMapper, BranchMapper branchMapper,
-                           LimitProfileRepository limitProfileRepository, CardDataEncryptionService encryptionService) {
+                           LimitProfileRepository limitProfileRepository, CardDataEncryptionService encryptionService, NewCardRequestService newCardRequestService) {
         this.cardRepository = cardRepository;
         this.cardAccountRepository = cardAccountRepository;
         this.cardStatusRepository = cardStatusRepository;
@@ -55,9 +58,12 @@ public class CardServiceImpl implements CardService {
         this.branchMapper = branchMapper;
         this.limitProfileRepository = limitProfileRepository;
         this.encryptionService = encryptionService;
+        this.newCardRequestService = newCardRequestService;
     }
 
-    /** Resolve PAN for internal use (e.g. link/delink). Prefer decrypted from panEncrypted. */
+    /**
+     * Resolve PAN for internal use (e.g. link/delink). Prefer decrypted from panEncrypted.
+     */
     private String resolvePan(Card card) {
         if (card.getPanEncrypted() != null && !card.getPanEncrypted().isBlank()) {
             return encryptionService.decrypt(card.getPanEncrypted());
@@ -73,8 +79,8 @@ public class CardServiceImpl implements CardService {
     @Override
     public PageResponse<CardResponse> searchCards(CardSearchRequest request) {
         Sort sort = "asc".equalsIgnoreCase(request.getSortDir())
-            ? Sort.by(request.getSort()).ascending()
-            : Sort.by(request.getSort()).descending();
+                ? Sort.by(request.getSort()).ascending()
+                : Sort.by(request.getSort()).descending();
         var pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
         Specification<Card> spec = CardSpecification.fromSearch(request).and(CardSpecification.fetchTypeStatusProductBranch());
         var page = cardRepository.findAll(spec, pageable);
@@ -89,7 +95,9 @@ public class CardServiceImpl implements CardService {
         return pr;
     }
 
-    /** When association IDs are null, names can still be resolved from codes (e.g. cardTypeCode -> cardTypeName). */
+    /**
+     * When association IDs are null, names can still be resolved from codes (e.g. cardTypeCode -> cardTypeName).
+     */
     private void fillNamesFromCodes(List<CardResponse> list) {
         if (list == null || list.isEmpty()) return;
         Set<String> typeCodes = list.stream().filter(r -> r.getCardTypeName() == null && r.getCardTypeCode() != null).map(CardResponse::getCardTypeCode).collect(Collectors.toSet());
@@ -113,10 +121,14 @@ public class CardServiceImpl implements CardService {
             branchRepository.findByBranchCode(code).ifPresent(b -> branchNames.put(code, b.getBranchName()));
         }
         for (CardResponse r : list) {
-            if (r.getCardTypeName() == null && r.getCardTypeCode() != null) r.setCardTypeName(typeNames.get(r.getCardTypeCode()));
-            if (r.getCardStatusName() == null && r.getCardStatusCode() != null) r.setCardStatusName(statusNames.get(r.getCardStatusCode()));
-            if (r.getProductName() == null && r.getProductCode() != null) r.setProductName(productNames.get(r.getProductCode()));
-            if (r.getBranchName() == null && r.getBranchCode() != null) r.setBranchName(branchNames.get(r.getBranchCode()));
+            if (r.getCardTypeName() == null && r.getCardTypeCode() != null)
+                r.setCardTypeName(typeNames.get(r.getCardTypeCode()));
+            if (r.getCardStatusName() == null && r.getCardStatusCode() != null)
+                r.setCardStatusName(statusNames.get(r.getCardStatusCode()));
+            if (r.getProductName() == null && r.getProductCode() != null)
+                r.setProductName(productNames.get(r.getProductCode()));
+            if (r.getBranchName() == null && r.getBranchCode() != null)
+                r.setBranchName(branchNames.get(r.getBranchCode()));
         }
     }
 
@@ -125,7 +137,7 @@ public class CardServiceImpl implements CardService {
         String hash = encryptionService.panHashForLookup(pan);
         Optional<Card> byHash = hash != null ? cardRepository.findByPanHash(hash) : Optional.<Card>empty();
         Card card = byHash.or(() -> cardRepository.findByPan(pan))
-            .orElseThrow(() -> new ResourceNotFoundException("Card", "PAN"));
+                .orElseThrow(() -> new ResourceNotFoundException("Card", "PAN"));
         CardResponse response = cardMapper.toResponse(card);
         if (response != null) fillNamesFromCodes(List.of(response));
         return response;
@@ -134,7 +146,7 @@ public class CardServiceImpl implements CardService {
     @Override
     public CardResponse getCardById(Long cardId) {
         Card card = cardRepository.findByIdWithDetails(cardId)
-            .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+                .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
         CardResponse response = cardMapper.toResponse(card);
         fillNamesFromCodes(response != null ? List.of(response) : List.of());
         return response;
@@ -201,9 +213,9 @@ public class CardServiceImpl implements CardService {
     @Transactional
     public void linkCardAccount(LinkCardAccountRequest request) {
         Card card = cardRepository.findByPan(request.getPan())
-            .orElseThrow(() -> new ResourceNotFoundException("Card", "PAN " + request.getPan()));
+                .orElseThrow(() -> new ResourceNotFoundException("Card", "PAN " + request.getPan()));
         Account account = accountRepository.findByAccountNum(request.getAccountNum())
-            .orElseThrow(() -> new ResourceNotFoundException("Account", request.getAccountNum()));
+                .orElseThrow(() -> new ResourceNotFoundException("Account", request.getAccountNum()));
         if (cardAccountRepository.findByPanAndAccountNum(request.getPan(), request.getAccountNum()).stream().findFirst().isPresent())
             throw new BusinessValidationException("Account already linked to this card");
         CardAccount ca = new CardAccount();
@@ -225,7 +237,7 @@ public class CardServiceImpl implements CardService {
     @Transactional
     public void linkCardAccountByCardId(Long cardId, LinkCardAccountByCardIdRequest request) {
         Card card = cardRepository.findById(cardId)
-            .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+                .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
         String pan = resolvePan(card);
         if (pan == null || pan.isBlank())
             throw new BusinessValidationException("Card has no PAN");
@@ -242,7 +254,7 @@ public class CardServiceImpl implements CardService {
     @Transactional
     public void delinkCardAccount(String pan, String accountNum) {
         CardAccount ca = cardAccountRepository.findByPanAndAccountNum(pan, accountNum).stream().findFirst()
-            .orElseThrow(() -> new ResourceNotFoundException("CardAccount", pan + "/" + accountNum));
+                .orElseThrow(() -> new ResourceNotFoundException("CardAccount", pan + "/" + accountNum));
         cardAccountRepository.deleteById(ca.getCaId());
     }
 
@@ -250,7 +262,7 @@ public class CardServiceImpl implements CardService {
     @Transactional
     public void delinkCardAccountByCardId(Long cardId, String accountNum) {
         Card card = cardRepository.findById(cardId)
-            .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+                .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
         String pan = resolvePan(card);
         if (pan == null || pan.isBlank())
             throw new BusinessValidationException("Card has no PAN");
@@ -261,20 +273,20 @@ public class CardServiceImpl implements CardService {
     @Transactional
     public CardResponse updateCard(Long cardId, CardUpdateRequest request) {
         Card card = cardRepository.findById(cardId)
-            .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+                .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
         if (request.getCardStatusId() != null) {
             CardStatus cs = cardStatusRepository.findById(request.getCardStatusId())
-                .orElseThrow(() -> new ResourceNotFoundException("CardStatus", String.valueOf(request.getCardStatusId())));
+                    .orElseThrow(() -> new ResourceNotFoundException("CardStatus", String.valueOf(request.getCardStatusId())));
             card.setCardStatusId(cs.getId());
             card.setCardStatusCode(cs.getCardStatusCode());
         } else if (request.getCardStatusCode() != null) {
             card.setCardStatusCode(request.getCardStatusCode());
             cardStatusRepository.findByCardStatusCode(request.getCardStatusCode())
-                .ifPresent(cs -> card.setCardStatusId(cs.getId()));
+                    .ifPresent(cs -> card.setCardStatusId(cs.getId()));
         }
         if (request.getLimitProfileId() != null) {
             LimitProfile lp = limitProfileRepository.findById(request.getLimitProfileId())
-                .orElseThrow(() -> new ResourceNotFoundException("LimitProfile", String.valueOf(request.getLimitProfileId())));
+                    .orElseThrow(() -> new ResourceNotFoundException("LimitProfile", String.valueOf(request.getLimitProfileId())));
             card.setLimitProfile(lp.getProfileCode());
             card.setLimitProfileId(lp.getId());
         } else if (request.getLimitProfile() != null) {
@@ -283,7 +295,7 @@ public class CardServiceImpl implements CardService {
                 card.setLimitProfileId(null);
             } else {
                 LimitProfile lp = limitProfileRepository.findByProfileCode(request.getLimitProfile())
-                    .orElseThrow(() -> new ResourceNotFoundException("LimitProfile", request.getLimitProfile()));
+                        .orElseThrow(() -> new ResourceNotFoundException("LimitProfile", request.getLimitProfile()));
                 card.setLimitProfile(lp.getProfileCode());
                 card.setLimitProfileId(lp.getId());
             }
@@ -297,15 +309,15 @@ public class CardServiceImpl implements CardService {
     @Transactional
     public void linkLimitProfile(Long cardId, Long limitProfileId, String limitProfile) {
         Card card = cardRepository.findById(cardId)
-            .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+                .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
         if (limitProfileId != null) {
             LimitProfile lp = limitProfileRepository.findById(limitProfileId)
-                .orElseThrow(() -> new ResourceNotFoundException("LimitProfile", String.valueOf(limitProfileId)));
+                    .orElseThrow(() -> new ResourceNotFoundException("LimitProfile", String.valueOf(limitProfileId)));
             card.setLimitProfile(lp.getProfileCode());
             card.setLimitProfileId(lp.getId());
         } else if (limitProfile != null && !limitProfile.isBlank()) {
             LimitProfile lp = limitProfileRepository.findByProfileCode(limitProfile)
-                .orElseThrow(() -> new ResourceNotFoundException("LimitProfile", limitProfile));
+                    .orElseThrow(() -> new ResourceNotFoundException("LimitProfile", limitProfile));
             card.setLimitProfile(lp.getProfileCode());
             card.setLimitProfileId(lp.getId());
         } else {
@@ -319,7 +331,7 @@ public class CardServiceImpl implements CardService {
     @Override
     public List<CardAccountLinkResponse> getLinkedAccountsByCardId(Long cardId) {
         Card card = cardRepository.findById(cardId)
-            .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+                .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
         String pan = resolvePan(card);
         if (pan == null || pan.isBlank()) return List.of();
         return getLinkedAccountsByPan(pan);
@@ -347,7 +359,7 @@ public class CardServiceImpl implements CardService {
     @Transactional
     public void closeCard(Long cardId) {
         Card card = cardRepository.findById(cardId)
-            .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+                .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
         card.setCardStatusCode("CLOSED");
         card.setWhenDeleted(LocalDateTime.now());
         card.setUpdatedOn(LocalDateTime.now());
@@ -360,4 +372,79 @@ public class CardServiceImpl implements CardService {
         r.setRelationshipNum(rel);
         return r;
     }
+
+    @Override
+    public List<CardResponse> searchByExpiryDate(ExpirySearchRequest request) {
+        LocalDateTime from = request.getDateFrom() != null
+                ? request.getDateFrom().atStartOfDay()
+                : LocalDateTime.of(2000, 1, 1, 0, 0, 0);
+        LocalDateTime to = request.getDateTo() != null
+                ? request.getDateTo().atTime(23, 59, 59)
+                : LocalDateTime.of(2099, 12, 31, 23, 59, 59);
+        List<Card> cards = cardRepository.findByExpiryDateBetween(from, to);
+        return cardMapper.toResponseList(cards);
+    }
+
+    @Override
+    @Transactional
+    public void changeCardType(Long cardId, ChangeCardTypeRequest request) {
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+        CardType cardType = cardTypeRepository.findById(request.getCardTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("CardType", String.valueOf(request.getCardTypeId())));
+        if (cardType.getIsActive() == null || cardType.getIsActive() != 1) {
+            throw new BusinessValidationException("Card Type is not active");
+        }
+        card.setCardTypeId(cardType.getId());
+        card.setCardTypeCode(cardType.getCardTypeCode());
+        card.setUpdatedOn(LocalDateTime.now());
+        cardRepository.save(card);
+    }
+
+    @Override
+    @Transactional
+    public Long replacementRequest(Long cardId) {
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+
+        if (card.getRelationshipNum() == null || card.getRelationshipNum().isBlank()) {
+            throw new BusinessValidationException("Card has no relationship number; cannot create replacement request.");
+        }
+        List<CardAccount> linkedAccounts = cardAccountRepository.findByCardId(cardId);
+        String accountNum = linkedAccounts.isEmpty() ? null : linkedAccounts.get(0).getAccountNum();
+        if (accountNum == null || accountNum.isBlank()) {
+            throw new BusinessValidationException("Link an account to this card before requesting replacement.");
+        }
+        if (card.getCardTypeId() == null && (card.getCardTypeCode() == null || card.getCardTypeCode().isBlank())) {
+            throw new BusinessValidationException("Card has no card type; cannot create replacement request.");
+        }
+        if (card.getCardProductId() == null && (card.getProductCode() == null || card.getProductCode().isBlank())) {
+            throw new BusinessValidationException("Card has no product; cannot create replacement request.");
+        }
+        if (card.getBranchId() == null && (card.getBranchCode() == null || card.getBranchCode().isBlank())) {
+            throw new BusinessValidationException("Card has no branch; cannot create replacement request.");
+        }
+
+        card.setCardStatusCode("INACTIVE");
+        card.setIsReplaced(1);
+        card.setUpdatedOn(LocalDateTime.now());
+        cardRepository.save(card);
+
+        NewCardRequestCreate newRequest = new NewCardRequestCreate();
+        newRequest.setRelationshipNum(card.getRelationshipNum());
+        newRequest.setAccountNum(accountNum);
+        newRequest.setCardTitle(card.getCardTitle());
+        newRequest.setCardTypeId(card.getCardTypeId());
+        newRequest.setCardTypeCode(card.getCardTypeCode());
+        newRequest.setProductId(card.getCardProductId());
+        newRequest.setProductCode(card.getProductCode());
+        newRequest.setBranchId(card.getBranchId());
+        newRequest.setBranchCode(card.getBranchCode());
+        newRequest.setRequestTypeId("REPLACEMENT");
+
+        CardRequestResponse response = newCardRequestService.create(newRequest, "system");
+        return response.getRequestId();
+    }
+
+
 }

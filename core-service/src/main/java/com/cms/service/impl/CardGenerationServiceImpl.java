@@ -96,7 +96,6 @@ public class CardGenerationServiceImpl implements CardGenerationService {
 
         // Modified this code for PAN generation
         String generatedPan = generatePan(req.getCardTypeId(), req.getCardTypeCode());
-        // Modified this code for PAN generation
         card.setPan(generatedPan);
         card.setPanEncrypted(encryptionService.encrypt(generatedPan));
         card.setPanLast4(encryptionService.panLast4(generatedPan));
@@ -171,7 +170,6 @@ public class CardGenerationServiceImpl implements CardGenerationService {
 
     // Modified this code for PAN generation
     private String generatePan(Long cardTypeId, String cardTypeCode) {
-        // Get BIN from CardType — fallback to 900419 if not found
         int bin = 900419;
         if (cardTypeId != null) {
             var cardType = cardTypeRepository.findById(cardTypeId).orElse(null);
@@ -184,22 +182,17 @@ public class CardGenerationServiceImpl implements CardGenerationService {
                 bin = cardType.getBin();
             }
         }
-        // BIN padded to 6 digits
         String binStr = String.format("%06d", bin);
-        // Generate 9 random numeric digits
         Random random = new Random();
         StringBuilder middle = new StringBuilder();
         for (int i = 0; i < 9; i++) {
             middle.append(random.nextInt(10));
         }
-        // 15 digits = BIN(6) + middle(9)
         String pan15 = binStr + middle;
-        // Calculate Luhn check digit
         int luhn = calculateLuhnDigit(pan15);
         return pan15 + luhn;
     }
 
-    // Modified this code for PAN generation — Luhn algorithm check digit
     private int calculateLuhnDigit(String pan15) {
         int sum = 0;
         boolean alternate = true;

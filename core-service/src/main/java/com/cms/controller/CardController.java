@@ -1,9 +1,6 @@
 package com.cms.controller;
 
-import com.cms.dto.request.CardSearchRequest;
-import com.cms.dto.request.CardUpdateRequest;
-import com.cms.dto.request.LinkCardAccountRequest;
-import com.cms.dto.request.LinkCardAccountByCardIdRequest;
+import com.cms.dto.request.*;
 import com.cms.dto.response.*;
 import com.cms.service.CardService;
 import com.cms.service.CardExportFileService;
@@ -156,4 +153,32 @@ public class CardController {
             @RequestParam String rel, @RequestParam(required = false) String linked, @RequestParam(required = false) Long cardId) {
         return ResponseEntity.ok(ApiResponse.ok(cardService.getCustomerByRelation(rel, linked, cardId)));
     }
+
+    @PostMapping("/expiry-search")
+    @Operation(summary = " Search cards by expiry date range")
+    public ResponseEntity<ApiResponse<List<CardResponse>>> searchByExpiryDate (
+        @RequestBody ExpirySearchRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(cardService.searchByExpiryDate(request)));
+    }
+
+    @PostMapping("/{id}/change-card-type")
+    @Operation(summary = "Change card type")
+    public ResponseEntity<ApiResponse<Void>> changeCardType(
+            @PathVariable Long id,
+            @RequestBody ChangeCardTypeRequest request) {
+        cardService.changeCardType(id, request);
+        return ResponseEntity.ok(ApiResponse.ok("Card type changed", null));
+    }
+
+    @PostMapping("/{id}/replacement-request")
+    @Operation(summary = "Mark card inactive and create replacement card request")
+    public ResponseEntity<ApiResponse<Long>> replacementRequest(@PathVariable Long id) {
+        Long newRequestId = cardService.replacementRequest(id);
+        return ResponseEntity.ok(ApiResponse.ok("Replacement request created", newRequestId));
+    }
+
+
+
+
+
 }

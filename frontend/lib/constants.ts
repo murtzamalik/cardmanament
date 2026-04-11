@@ -7,6 +7,18 @@ export const config = {
   apiBaseUrl: API_BASE_URL,
 } as const;
 
+/** Query param name for card detail “Back” target (internal path only). */
+export const CARD_RETURN_FROM_PARAM = 'from';
+
+/** Safe path for router after reading `from` query param (open redirect safe). */
+export function safeReturnPath(from: string | null | undefined, fallback = '/operations/cards'): string {
+  if (from == null || from === '') return fallback;
+  const t = from.trim();
+  if (!t.startsWith('/') || t.startsWith('//')) return fallback;
+  if (t.includes(':') || t.includes('\\')) return fallback;
+  return t;
+}
+
 export const ROUTES = {
   login: '/auth/login',
   home: '/',
@@ -23,6 +35,12 @@ export const ROUTES = {
   products: '/housekeeping/products',
   cardTypes: '/housekeeping/card-types',
   cards: '/operations/cards',
+  cardsExpiry: '/operations/cards/expiry',
+  cardsChangeType: '/operations/cards/change-type',
+  cardsReplacement: '/operations/cards/replacement-request',
+  cardsChangeStatus: '/operations/cards/change-status',
+  changeCardStatus: '/operations/cards/change-status',
+  exportCard: '/operations/export-card',
   newCardRequest: '/card-production/new-request',
   cardRequests: '/card-production/requests',
   cardRequestSearch: '/card-production/requests/search',

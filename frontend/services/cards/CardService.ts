@@ -10,6 +10,8 @@ import type {
   CardAccountLink,
   CustomerInfo,
   LinkCardAccountRequest,
+  ExpirySearchRequest,
+  ChangeCardTypeRequest,
 } from '@/types/card';
 
 const BASE = '/api/cards';
@@ -44,6 +46,28 @@ export async function searchCards(request: CardSearchRequest): Promise<PageRespo
   const res = await client.post<PageResponse<Card>>(`${BASE}/search`, request);
   if (!res.success || !res.data) return { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 };
   return res.data;
+}
+
+/** Cards whose expiry falls within the given date range (inclusive). */
+export async function searchCardsByExpiry(request: ExpirySearchRequest): Promise<Card[]> {
+  const client = getApiClient();
+  const res = await client.post<Card[]>(`${BASE}/expiry-search`, request);
+  if (!res.success || !res.data) return [];
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function changeCardType(cardId: number, body: ChangeCardTypeRequest): Promise<void> {
+  const client = getApiClient();
+  const res = await client.post<unknown>(`${BASE}/${cardId}/change-card-type`, body);
+  if (!res.success) throw new Error(res.message ?? 'Change card type failed');
+}
+
+/** Marks card inactive and creates a replacement card request; returns new request id. */
+export async function createReplacementRequest(cardId: number): Promise<number> {
+  const client = getApiClient();
+  const res = await client.post<number>(`${BASE}/${cardId}/replacement-request`);
+  if (!res.success || res.data == null) throw new Error(res.message ?? 'Replacement request failed');
+  return typeof res.data === 'number' ? res.data : Number(res.data);
 }
 
 export async function getCardById(id: number): Promise<Card | null> {

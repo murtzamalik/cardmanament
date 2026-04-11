@@ -16,7 +16,13 @@ export const menuItems: AppMenuItem[] = [
   },
   {
     label: 'Operations',
-    items: [{ label: 'Cards', icon: 'pi pi-fw pi-credit-card', to: ROUTES.cards }],
+    items: [
+      { label: 'Cards', icon: 'pi pi-fw pi-credit-card', to: ROUTES.cards },
+      { label: 'Expiry search', icon: 'pi pi-fw pi-calendar', to: ROUTES.cardsExpiry },
+      { label: 'Change card type', icon: 'pi pi-fw pi-sync', to: ROUTES.cardsChangeType },
+      { label: 'Replacement request', icon: 'pi pi-fw pi-replay', to: ROUTES.cardsReplacement },
+      { label: 'Change card status', icon: 'pi pi-fw pi-flag', to: ROUTES.cardsChangeStatus },
+    ],
   },
   {
     label: 'Card Production',
