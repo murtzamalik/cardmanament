@@ -8,9 +8,10 @@ public class CardSearchRequest {
     private Long cardStatusId;
     private String cardStatusCode;
     private String productCode;
+    private Long cardTypeId;
     private String cardTypeCode;
-    private java.time.LocalDateTime dateFrom;
-    private java.time.LocalDateTime dateTo;
+    private java.time.LocalDate dateFrom;
+    private java.time.LocalDate dateTo;
     private Integer page = 0;
     private Integer size = 20;
     private String sort = "createdOn";
@@ -30,12 +31,14 @@ public class CardSearchRequest {
     public void setCardStatusCode(String cardStatusCode) { this.cardStatusCode = cardStatusCode; }
     public String getProductCode() { return productCode; }
     public void setProductCode(String productCode) { this.productCode = productCode; }
+    public Long getCardTypeId() { return cardTypeId; }
+    public void setCardTypeId(Long cardTypeId) { this.cardTypeId = cardTypeId; }
     public String getCardTypeCode() { return cardTypeCode; }
     public void setCardTypeCode(String cardTypeCode) { this.cardTypeCode = cardTypeCode; }
-    public java.time.LocalDateTime getDateFrom() { return dateFrom; }
-    public void setDateFrom(java.time.LocalDateTime dateFrom) { this.dateFrom = dateFrom; }
-    public java.time.LocalDateTime getDateTo() { return dateTo; }
-    public void setDateTo(java.time.LocalDateTime dateTo) { this.dateTo = dateTo; }
+    public java.time.LocalDate getDateFrom() { return dateFrom; }
+    public void setDateFrom(java.time.LocalDate dateFrom) { this.dateFrom = dateFrom; }
+    public java.time.LocalDate getDateTo() { return dateTo; }
+    public void setDateTo(java.time.LocalDate dateTo) { this.dateTo = dateTo; }
     public Integer getPage() { return page; }
     public void setPage(Integer page) { this.page = page; }
     public Integer getSize() { return size; }

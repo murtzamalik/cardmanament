@@ -22,7 +22,9 @@ export function safeReturnPath(from: string | null | undefined, fallback = '/ope
 export const ROUTES = {
   login: '/auth/login',
   home: '/',
+  unauthorized: '/unauthorized',
   users: '/security/users',
+  menus: '/security/menus',
   roles: '/security/roles',
   permissions: '/security/permissions',
   branches: '/housekeeping/branches',
@@ -40,7 +42,7 @@ export const ROUTES = {
   cardsReplacement: '/operations/cards/replacement-request',
   cardsChangeStatus: '/operations/cards/change-status',
   changeCardStatus: '/operations/cards/change-status',
-  exportCard: '/operations/export-card',
+  cardsExport: '/operations/cards/export',
   newCardRequest: '/card-production/new-request',
   cardRequests: '/card-production/requests',
   cardRequestSearch: '/card-production/requests/search',

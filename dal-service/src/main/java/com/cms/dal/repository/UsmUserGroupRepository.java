@@ -8,4 +8,6 @@ import java.util.List;
 public interface UsmUserGroupRepository extends JpaRepository<UsmUserGroup, Long> {
 
     List<UsmUserGroup> findByLoginId(String loginId);
+
+    List<UsmUserGroup> findByLoginIdIgnoreCase(String loginId);
 }

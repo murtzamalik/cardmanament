@@ -9,7 +9,11 @@ public interface UsmUserRepository extends JpaRepository<UsmUser, Long> {
 
     Optional<UsmUser> findByLoginIdAndAppId(String loginId, String appId);
 
+    Optional<UsmUser> findByLoginIdIgnoreCaseAndAppId(String loginId, String appId);
+
     Optional<UsmUser> findByLoginId(String loginId);
+
+    Optional<UsmUser> findByLoginIdIgnoreCase(String loginId);
 
     boolean existsByLoginId(String loginId);
 }

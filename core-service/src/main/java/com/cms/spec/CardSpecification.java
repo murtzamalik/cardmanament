@@ -51,14 +51,16 @@ public final class CardSpecification {
             if (req.getProductCode() != null && !req.getProductCode().isBlank()) {
                 predicates.add(cb.equal(root.get("productCode"), req.getProductCode()));
             }
-            if (req.getCardTypeCode() != null && !req.getCardTypeCode().isBlank()) {
+            if (req.getCardTypeId() != null) {
+                predicates.add(cb.equal(root.get("cardTypeId"), req.getCardTypeId()));
+            } else if (req.getCardTypeCode() != null && !req.getCardTypeCode().isBlank()) {
                 predicates.add(cb.equal(root.get("cardTypeCode"), req.getCardTypeCode()));
             }
             if (req.getDateFrom() != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("createdOn"), req.getDateFrom()));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdOn"), req.getDateFrom().atStartOfDay()));
             }
             if (req.getDateTo() != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("createdOn"), req.getDateTo()));
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdOn"), req.getDateTo().atTime(23, 59, 59)));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

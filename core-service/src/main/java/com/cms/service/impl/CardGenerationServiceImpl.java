@@ -14,7 +14,6 @@ import com.cms.exception.ResourceNotFoundException;
 import com.cms.mapper.CardMapper;
 import com.cms.mapper.CardRequestMapper;
 import com.cms.service.CardDataEncryptionService;
-import com.cms.service.CardExportFileService;
 import com.cms.service.CardGenerationService;
 import com.cms.service.CardTrackDataFormatter;
 import com.cms.service.CvvGenerationService;
@@ -28,6 +27,8 @@ import java.util.Base64;
 import java.util.List;
 import java.time.YearMonth;
 import java.util.Random; // Modified this code for PAN generation
+import java.util.Comparator;
+import java.util.Optional;
 
 
 @Service
@@ -39,7 +40,6 @@ public class CardGenerationServiceImpl implements CardGenerationService {
     private final CardRequestMapper cardRequestMapper;
     private final CardMapper cardMapper;
     private final CardDataEncryptionService encryptionService;
-    private final CardExportFileService cardExportFileService;
     private final CvvGenerationService cvvGenerationService;
     private final CardTrackDataFormatter cardTrackDataFormatter;
     private final AccountRepository accountRepository;
@@ -50,7 +50,6 @@ public class CardGenerationServiceImpl implements CardGenerationService {
     public CardGenerationServiceImpl(CardRequestRepository cardRequestRepository, CardRepository cardRepository,
                                     CardTypeRepository cardTypeRepository, CardRequestMapper cardRequestMapper,
                                     CardMapper cardMapper, CardDataEncryptionService encryptionService,
-                                    CardExportFileService cardExportFileService,
                                     CvvGenerationService cvvGenerationService,
                                     CardTrackDataFormatter cardTrackDataFormatter,
                                     AccountRepository accountRepository,
@@ -61,7 +60,6 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         this.cardRequestMapper = cardRequestMapper;
         this.cardMapper = cardMapper;
         this.encryptionService = encryptionService;
-        this.cardExportFileService = cardExportFileService;
         this.cvvGenerationService = cvvGenerationService;
         this.cardTrackDataFormatter = cardTrackDataFormatter;
         this.accountRepository = accountRepository;
@@ -85,7 +83,10 @@ public class CardGenerationServiceImpl implements CardGenerationService {
             result.setMessage("Request already processed");
             return result;
         }
-        Card card = new Card();
+        boolean isReplacement = "REPLACEMENT".equalsIgnoreCase(req.getRequestTypeId());
+        Optional<Card> replacementTarget = isReplacement ? findReplacementTargetCard(req) : Optional.empty();
+        Card card = replacementTarget.orElseGet(Card::new);
+        String oldPan = resolvePan(card);
         card.setRelationshipNum(req.getRelationshipNum());
         // Modified code for setting title to 19 chars
         String rawTitle = req.getCardTitle() != null ? req.getCardTitle().trim() : "";
@@ -93,6 +94,9 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         card.setCardTypeCode(req.getCardTypeCode());
         card.setProductCode(req.getProductCode());
         card.setBranchCode(req.getBranchCode());
+        card.setCardTypeId(req.getCardTypeId());
+        card.setCardProductId(req.getCardProductId());
+        card.setBranchId(req.getBranchId());
 
         // Modified this code for PAN generation
         String generatedPan = generatePan(req.getCardTypeId(), req.getCardTypeCode());
@@ -104,7 +108,7 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         YearMonth expiryMonth = YearMonth.now().plusYears(5);
         card.setExpiryDate(expiryMonth.atEndOfMonth().atTime(23, 59, 59));
         //card.setExpiryDate(LocalDateTime.now().plusYears(5));
-        card.setCardStatusCode("ACTIVE");
+        card.setCardStatusCode("COLD");
         card.setCreatedOn(LocalDateTime.now());
         card.setUpdatedOn(LocalDateTime.now());
         card.setCreatedBy("system");
@@ -112,6 +116,7 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         card.setIsReplaced(0);
         card.setIssuedDate(LocalDateTime.now());
         card.setActivationDate(null);
+        card.setCardProdStatusId("001"); // 001 = Issued, card generated not yet exported
 
 
         String expiryYyMm = card.getExpiryDate().format(EXPIRY_YYMM);
@@ -126,6 +131,18 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         card.setTrack2Data(base64Encode(track2));
 
         Card saved = cardRepository.save(card);
+        if (isReplacement && oldPan != null && !oldPan.isBlank() && !oldPan.equals(generatedPan)) {
+            // Keep account links on the same card row aligned with the new PAN after replacement.
+            List<CardAccount> links = cardAccountRepository.findByCardId(saved.getCardId());
+            for (CardAccount link : links) {
+                if (oldPan.equals(link.getPan())) {
+                    link.setPan(generatedPan);
+                    link.setUpdatedOn(LocalDateTime.now());
+                    link.setUpdatedBy("system");
+                }
+            }
+            cardAccountRepository.saveAll(links);
+        }
         req.setIsProcessed(1);
         req.setProgressFlag(1);
         req.setPrimaryPan(generatedPan);
@@ -159,8 +176,30 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         result.setSuccess(true);
         result.setMessage("Card generated successfully");
         result.setCardId(saved.getCardId());
-        result.setPanMasked(saved.getPanLast4() != null ? "****" + saved.getPanLast4() : cardMapper.maskPan(saved.getPan()));
+        result.setPanMasked(cardMapper.maskPan(saved.getPan()));
         return result;
+    }
+
+    private Optional<Card> findReplacementTargetCard(CardRequest req) {
+        List<Card> candidates = cardRepository.findByRelationshipNumAndCardStatusCode(req.getRelationshipNum(), "WARM");
+        return candidates.stream()
+            .filter(c -> c.getIsReplaced() != null && c.getIsReplaced() == 1)
+            .filter(c -> req.getAccountNum() == null || req.getAccountNum().isBlank() ||
+                cardAccountRepository.findByCardId(c.getCardId()).stream()
+                    .anyMatch(ca -> req.getAccountNum().equals(ca.getAccountNum())))
+            .max(Comparator.comparing(Card::getUpdatedOn, Comparator.nullsLast(Comparator.naturalOrder())));
+    }
+
+    private String resolvePan(Card card) {
+        if (card == null) return null;
+        if (card.getPanEncrypted() != null && !card.getPanEncrypted().isBlank()) {
+            try {
+                return encryptionService.decrypt(card.getPanEncrypted());
+            } catch (RuntimeException ignore) {
+                // Fall through to legacy plain PAN if encrypted value is not readable.
+            }
+        }
+        return card.getPan();
     }
 
     private static String base64Encode(String value) {
@@ -218,7 +257,6 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         req.setUpdatedOn(LocalDateTime.now());
         cardRequestRepository.save(req);
     }
-
     @Override
     @Transactional
     public CardGenerationResultResponse approveAndGenerate(Long requestId) {
@@ -231,21 +269,6 @@ public class CardGenerationServiceImpl implements CardGenerationService {
             return already;
         }
         updateCardRequestProgress(requestId, 1);
-        CardGenerationResultResponse result = processNewCardGeneration(requestId);
-        if (!result.isSuccess()) {
-            return result;
-        }
-        if (result.getCardId() != null) {
-            Card card = cardRepository.findById(result.getCardId()).orElse(null);
-            if (card != null) {
-                String exportPath = cardExportFileService.generateExportFile(card, requestId);
-                result.setExportFilePath(exportPath);
-                if (exportPath != null && !exportPath.isBlank()) {
-                    card.setExportFilePath(exportPath);
-                    cardRepository.save(card);
-                }
-            }
-        }
-        return result;
+        return processNewCardGeneration(requestId);
     }
 }

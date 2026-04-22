@@ -19,7 +19,7 @@ spring:
       hibernate:
         format_sql: true
         jdbc:
-          time_zone: UTC
+          time_zone: Asia/Karachi
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -28,7 +28,8 @@ app:
   default-app-id: CMS
   date-format: "dd/MM/yyyy HH:mm:ss"
   cors:
-    allowed-origins: "http://localhost:3000,http://127.0.0.1:3000"
+    # Comma-separated browser origins. Docker / prod: set APP_CORS_ALLOWED_ORIGINS (include public UI URL, e.g. http://HOST:7071).
+    allowed-origins: "${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000,http://localhost:7071,http://127.0.0.1:7071}"
 
 jwt:
   secret: your-256-bit-secret-key-here-change-in-production

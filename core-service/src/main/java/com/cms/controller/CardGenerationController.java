@@ -41,7 +41,7 @@ public class CardGenerationController {
     }
 
     @PostMapping("/request/{id}/approve-and-generate")
-    @Operation(summary = "Approve request, generate card, and create export file")
+    @Operation(summary = "Approve request and generate card")
     public ResponseEntity<ApiResponse<CardGenerationResultResponse>> approveAndGenerate(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(cardGenerationService.approveAndGenerate(id)));
     }

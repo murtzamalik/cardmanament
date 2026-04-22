@@ -10,13 +10,15 @@ export interface CardVisualProps {
   cardTypeName?: string | null;
 }
 
-/** Format masked PAN as 4 groups e.g. **** **** **** 1234 */
+/** Format masked PAN as 4 groups, preserving first 6 and last 4 when available. */
 function formatPanGroups(panMasked: string | null | undefined): string {
   if (!panMasked || !panMasked.trim()) return '**** **** **** ****';
-  const s = panMasked.trim();
-  if (s.length <= 4) return '**** **** **** ' + s;
-  const last4 = s.slice(-4);
-  return '**** **** **** ' + last4;
+  const raw = panMasked.trim().replace(/\s+/g, '');
+  if (raw.length < 16) {
+    const last4 = raw.length >= 4 ? raw.slice(-4) : raw;
+    return '**** **** **** ' + last4;
+  }
+  return `${raw.slice(0, 4)} ${raw.slice(4, 8)} ${raw.slice(8, 12)} ${raw.slice(12, 16)}`;
 }
 
 /** Format expiry as MM/YY */

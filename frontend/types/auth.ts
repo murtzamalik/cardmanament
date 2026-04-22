@@ -1,3 +1,4 @@
+import type { MenuResponse } from '@/types/menu';
 export interface LoginRequest {
   loginId: string;
   password: string;
@@ -10,6 +11,7 @@ export interface LoginResponse {
   fullName: string;
   expiresIn: number;
   roles: string[];
+  menus?: MenuResponse[];
 }
 
 export interface IAuthService {

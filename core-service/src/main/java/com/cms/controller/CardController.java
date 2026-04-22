@@ -162,12 +162,12 @@ public class CardController {
     }
 
     @PostMapping("/{id}/change-card-type")
-    @Operation(summary = "Change card type")
-    public ResponseEntity<ApiResponse<Void>> changeCardType(
+    @Operation(summary = "Create card request for card type change")
+    public ResponseEntity<ApiResponse<Long>> changeCardType(
             @PathVariable Long id,
             @RequestBody ChangeCardTypeRequest request) {
-        cardService.changeCardType(id, request);
-        return ResponseEntity.ok(ApiResponse.ok("Card type changed", null));
+        Long requestId = cardService.changeCardType(id, request);
+        return ResponseEntity.ok(ApiResponse.ok("Card type change request created", requestId));
     }
 
     @PostMapping("/{id}/replacement-request")
@@ -177,7 +177,28 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok("Replacement request created", newRequestId));
     }
 
+    @PostMapping("/export-ready")
+    @Operation(summary = "Get cards ready for export by card type")
+    public ResponseEntity<ApiResponse<List<CardResponse>>> getExportReadyCards(
+            @RequestBody ExportReadyRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(cardService.getExportReadyCards(request)));
+    }
 
+    @PostMapping("/bulk-export")
+    @Operation(summary = "Bulk export selected cards to bureau file")
+    public ResponseEntity<ApiResponse<String>> bulkExport(
+            @RequestBody BulkExportRequest request) {
+        String exportPath = cardService.bulkExport(request);
+        return ResponseEntity.ok(ApiResponse.ok("Export file generated", exportPath));
+    }
+
+    @PostMapping("/bulk-renew")
+    @Operation(summary = "Bulk renew selected cards by extending expiry date")
+    public ResponseEntity<ApiResponse<List<Long>>> bulkRenew(
+            @RequestBody BulkRenewRequest request) {
+        List<Long> renewedIds = cardService.bulkRenew(request);
+        return ResponseEntity.ok(ApiResponse.ok("Cards renewed successfully", renewedIds));
+    }
 
 
 

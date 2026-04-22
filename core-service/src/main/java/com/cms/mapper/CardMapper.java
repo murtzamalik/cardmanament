@@ -10,19 +10,31 @@ import java.util.List;
 @Component
 public class CardMapper {
 
-    /** Mask PAN for display: show last 4 digits only. */
+    ///** Mask PAN for display: show last 4 digits only. */
+//    public String maskPan(String pan) {
+//        if (pan == null || pan.length() < 4) return "****";
+//        return "****" + pan.substring(pan.length() - 4);
+//    }
+    /** Mask PAN for display: show first 6 and last 4 digits. */
     public String maskPan(String pan) {
-        if (pan == null || pan.length() < 4) return "****";
-        return "****" + pan.substring(pan.length() - 4);
+        if (pan == null || pan.length() <= 10) return "****";
+        return pan.substring(0, 6)
+                + "*".repeat(pan.length() - 10)
+                + pan.substring(pan.length() - 4);
     }
+
 
     public CardResponse toResponse(Card c) {
         if (c == null) return null;
         CardResponse r = new CardResponse();
         r.setId(c.getCardId());
         r.setCardId(c.getCardId());
-        r.setPanMasked(c.getPanLast4() != null && !c.getPanLast4().isBlank()
-            ? "****" + c.getPanLast4() : maskPan(c.getPan()));
+        String panForMask = c.getPan();
+        if ((panForMask == null || panForMask.isBlank()) && c.getPanLast4() != null && !c.getPanLast4().isBlank()) {
+            // Fallback when only last4 is available in legacy rows.
+            panForMask = "000000000000" + c.getPanLast4();
+        }
+        r.setPanMasked(maskPan(panForMask));
         r.setRelationshipNum(c.getRelationshipNum());
         r.setCardTitle(c.getCardTitle());
         r.setExpiryDate(c.getExpiryDate());

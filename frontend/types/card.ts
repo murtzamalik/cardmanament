@@ -36,6 +36,7 @@ export interface CardUpdateRequest {
 export interface ExpirySearchRequest {
   dateFrom?: string;
   dateTo?: string;
+  pan?: string;
 }
 
 /** Body for POST /api/cards/{id}/change-card-type */
@@ -46,6 +47,7 @@ export interface ChangeCardTypeRequest {
 export interface CardSearchRequest {
   pan?: string;
   relationshipNum?: string;
+  cardTypeId?: number | null;
   branchId?: number | null;
   branchCode?: string;
   cardStatusId?: number | null;

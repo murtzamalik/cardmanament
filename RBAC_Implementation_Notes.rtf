@@ -1,0 +1,136 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Calibri;}}
+\fs24
+\b RBAC Implementation Notes - Card Management System\b0\par
+\par
+\b 1) Objective\b0\par
+Implement dynamic role-based access control (RBAC) where:\par
+- Menus are driven from backend API, not hardcoded only.\par
+- Roles are managed from admin UI.\par
+- Role-to-menu and user-to-role assignment are configurable.\par
+- Frontend route access follows assigned menus.\par
+- Backend enforces authorization on management APIs.\par
+\par
+\b 2) What Was Implemented\b0\par
+\b Backend\b0\par
+- Added/extended menu APIs:\par
+  - GET /api/my-menus\par
+  - GET /api/menus\par
+  - POST /api/menus\par
+  - PUT /api/menus/{id}\par
+  - DELETE /api/menus/{id}\par
+- Added role-menu assignment APIs:\par
+  - GET /api/roles/{roleCode}/menus\par
+  - POST /api/roles/{roleCode}/menus\par
+  - DELETE /api/roles/{roleCode}/menus/{menuId}\par
+- Added user-role assignment APIs:\par
+  - GET /api/users/{id}/roles\par
+  - POST /api/users/{id}/roles\par
+  - DELETE /api/users/{id}/roles/{roleCode}\par
+- Login/refresh now include menus in auth response.\par
+- Added method-level authorization for management endpoints (ADMIN/SECURITY_MANAGER/SUPER_ADMIN).\par
+- Added migration V24 to seed additional menus.\par
+- Added migration V25 to grant all menus to ADMIN.\par
+\par
+\b Frontend\b0\par
+- Added menu types and service integration with backend APIs.\par
+- Added RBAC utility for menu storage/access checks.\par
+- Auth context now stores menus from login/refresh.\par
+- Sidebar now renders dynamic menus from backend response.\par
+- Route guard checks hasMenuAccess(path) and redirects to /unauthorized when blocked.\par
+- Added Unauthorized page.\par
+- Added Menu Management screen (security/menus).\par
+- Extended Role screen with menu assignment dialog.\par
+\par
+\b 3) Core Data Model Used\b0\par
+- USM_USER: users\par
+- USM_GROUP: roles\par
+- USM_USER_GROUP: user-role mapping\par
+- CMS_MENU: menu master\par
+- CMS_ROLE_MENU: role-menu mapping\par
+\par
+\b 4) End-to-End Runtime Flow\b0\par
+1. User logs in.\par
+2. Backend authenticates and fetches user roles.\par
+3. JWT is generated with role claims.\par
+4. Backend fetches menus for those roles.\par
+5. Frontend stores token and menus.\par
+6. Sidebar is built from allowed menus.\par
+7. Route guard allows/block routes by menu path.\par
+8. Backend still enforces role checks for protected APIs.\par
+\par
+\b 5) Key Fixes Done During Implementation\b0\par
+- Fixed date filter issue in card search (LocalDate handling).\par
+- Added expiry screen actions:\par
+  - Renew card (expiry +5 years from card expiry month).\par
+  - Replace card (replacement request flow).\par
+- Fixed replacement generation path to update the replacement-target card and PAN-linked records.\par
+- Fixed role resolution edge cases:\par
+  - Support role retrieval robustness.\par
+  - Added compatibility for login/user role lookup behavior.\par
+- Fixed admin menu access by seeding/granting complete mappings.\par
+\par
+\b 6) Testing Checklist (Functional)\b0\par
+\b A. Admin baseline\b0\par
+- Login as admin.\par
+- Confirm roles in login response include ADMIN.\par
+- Confirm menus list is returned.\par
+- Open security/users, security/roles, security/menus.\par
+\par
+\b B. Create and assign restricted role\b0\par
+- Create role CARD_TESTER.\par
+- Assign only selected menus.\par
+- Create test user and assign CARD_TESTER.\par
+- Login as test user and verify limited sidebar.\par
+- Try blocked route directly and verify redirect to /unauthorized.\par
+\par
+\b C. Backend protection\b0\par
+- With restricted user token, call admin endpoints.\par
+- Expected result: 403 Forbidden.\par
+\par
+\b D. Dynamic update check\b0\par
+- Add/remove menu from a role.\par
+- Re-login test user.\par
+- Verify sidebar changes without redeployment.\par
+\par
+\b 7) DB Verification Queries\b0\par
+1) User-role mapping:\par
+SELECT LOGIN_ID, GROUP_ID FROM USM_USER_GROUP WHERE UPPER(LOGIN_ID) IN ('ADMIN','RBAC_USER');\par
+\par
+2) Role-menu mapping:\par
+SELECT ROLE_CODE, MENU_ID FROM CMS_ROLE_MENU WHERE ROLE_CODE IN ('ADMIN','CARD_TESTER') ORDER BY ROLE_CODE, MENU_ID;\par
+\par
+3) Menu master:\par
+SELECT ID, MENU_NAME, MENU_PATH, STATUS FROM CMS_MENU ORDER BY SORT_ORDER, ID;\par
+\par
+\b 8) Lessons Learned / Notes\b0\par
+- Dynamic RBAC is best when UI access and backend auth are both enforced.\par
+- Frontend checks improve UX but are not security boundaries.\par
+- Keep role codes consistent across user-role and role-menu mappings.\par
+- After role/menu updates, users should re-login or refresh auth payload.\par
+- Prefer idempotent DB migrations for menu seed and grants.\par
+\par
+\b 9) Next Improvements (Recommended)\b0\par
+- Add fine-grained permission checks per business API (not just admin APIs).\par
+- Add audit logging for role/menu assignment changes.\par
+- Add cache invalidation strategy for role/menu updates.\par
+- Add super-admin policy model explicitly (if needed).\par
+\par
+\b 10) Files of Interest\b0\par
+- role.md (project notes and test plan)\par
+- core-service/src/main/java/com/cms/controller/MenuController.java\par
+- core-service/src/main/java/com/cms/controller/MyMenuController.java\par
+- core-service/src/main/java/com/cms/controller/RoleController.java\par
+- core-service/src/main/java/com/cms/controller/UserController.java\par
+- core-service/src/main/java/com/cms/service/MenuService.java\par
+- frontend/services/auth/AuthContext.tsx\par
+- frontend/layout/AppMenu.tsx\par
+- frontend/components/auth/ProtectedRoute.tsx\par
+- frontend/lib/rbac.ts\par
+- frontend/app/(main)/security/menus/page.tsx\par
+- frontend/app/(main)/security/roles/page.tsx\par
+- core-service/src/main/resources/db/migration/V24__seed_additional_cms_menus.sql\par
+- core-service/src/main/resources/db/migration/V25__grant_all_menus_to_admin.sql\par
+\par
+\b End of Notes\b0\par
+}

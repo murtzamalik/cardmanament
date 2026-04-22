@@ -11,6 +11,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   permissions: 'Permissions',
   operations: 'Operations',
   cards: 'Cards',
+  export: 'Card export',
   'card-production': 'Card Production',
   'new-request': 'New request',
   requests: 'Card requests',

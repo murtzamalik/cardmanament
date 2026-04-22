@@ -9,6 +9,10 @@ public class LoginResponse {
     private String fullName;
     private Long expiresIn;
     private List<String> roles;
+    private List<MenuResponse> menus;
+
+    public List<MenuResponse> getMenus() { return menus; }
+    public void setMenus(List<MenuResponse> menus) { this.menus = menus; }
 
     public LoginResponse() {
     }

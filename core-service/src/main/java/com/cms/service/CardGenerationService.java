@@ -16,8 +16,7 @@ public interface CardGenerationService {
     void updateCardRequestProgress(Long requestId, Integer progressFlag);
 
     /**
-     * Approve request, generate card, and write export file (when export is configured).
-     * Returns result with cardId, panMasked, and exportFilePath (if file was written).
+     * Approve request and generate card.
      */
     CardGenerationResultResponse approveAndGenerate(Long requestId);
 }

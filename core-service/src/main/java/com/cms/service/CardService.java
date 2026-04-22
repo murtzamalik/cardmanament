@@ -44,9 +44,17 @@ public interface CardService {
 
     List<CardResponse> searchByExpiryDate(ExpirySearchRequest request);
 
-    void changeCardType(Long cardId, ChangeCardTypeRequest request);
+    Long changeCardType(Long cardId, ChangeCardTypeRequest request);
 
     Long replacementRequest(Long cardId);
+
+    List<CardResponse>  getExportReadyCards(ExportReadyRequest request);
+
+    String bulkExport(BulkExportRequest request);
+
+    List<Long> bulkRenew(BulkRenewRequest request);
+
+
 
 
 

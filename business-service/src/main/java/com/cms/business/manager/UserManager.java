@@ -137,15 +137,18 @@ public class UserManager extends AbstractManagerStub {
 
     private List<String> resolveRoles(String loginId) {
         List<UsmUserGroup> userGroups = usmUserGroupRepository.findByLoginId(loginId);
+        log.info("DEBUG resolveRoles: loginId={} userGroups={}", loginId, userGroups.size());
         if (userGroups == null || userGroups.isEmpty()) return List.of("USER");
         Set<String> groupIds = userGroups.stream()
             .map(UsmUserGroup::getGroupId)
             .filter(java.util.Objects::nonNull)
             .collect(Collectors.toSet());
+        log.info("DEBUG resolveRoles: groupIds={}", groupIds);
         if (groupIds.isEmpty()) return List.of("USER");
         List<String> permissions = new ArrayList<>();
         for (String groupId : groupIds) {
             List<UsmGroupPermission> perms = usmGroupPermissionRepository.findByGroupId(groupId);
+            log.info("DEBUG resolveRoles: groupId={} perms={}", groupId, perms.size());
             if (perms != null) {
                 perms.stream()
                     .map(UsmGroupPermission::getPermissionId)
@@ -153,6 +156,7 @@ public class UserManager extends AbstractManagerStub {
                     .forEach(permissions::add);
             }
         }
+        log.info("DEBUG resolveRoles: final permissions={}", permissions);
         return permissions.isEmpty() ? List.of("USER") : permissions;
     }
 

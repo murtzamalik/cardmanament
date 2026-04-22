@@ -21,6 +21,8 @@ public interface CardRepository extends JpaRepository<Card, Long>, JpaSpecificat
 
     Optional<Card> findByPanHash(String panHash);
 
+    List<Card> findByCardProdStatusIdAndCardTypeId(String cardProdStatusId, Long cardTypeId);
+
     List<Card> findByRelationshipNum(String relationshipNum);
 
     List<Card> findByBranchCode(String branchCode);

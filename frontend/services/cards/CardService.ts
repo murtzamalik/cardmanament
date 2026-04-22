@@ -56,10 +56,19 @@ export async function searchCardsByExpiry(request: ExpirySearchRequest): Promise
   return Array.isArray(res.data) ? res.data : [];
 }
 
-export async function changeCardType(cardId: number, body: ChangeCardTypeRequest): Promise<void> {
+/** Bulk renew selected cards; returns renewed card IDs. */
+export async function bulkRenewCards(cardIds: number[]): Promise<number[]> {
   const client = getApiClient();
-  const res = await client.post<unknown>(`${BASE}/${cardId}/change-card-type`, body);
-  if (!res.success) throw new Error(res.message ?? 'Change card type failed');
+  const res = await client.post<number[]>(`${BASE}/bulk-renew`, { cardIds });
+  if (!res.success || !res.data) throw new Error(res.message ?? 'Bulk renew failed');
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function changeCardType(cardId: number, body: ChangeCardTypeRequest): Promise<number> {
+  const client = getApiClient();
+  const res = await client.post<number>(`${BASE}/${cardId}/change-card-type`, body);
+  if (!res.success || res.data == null) throw new Error(res.message ?? 'Change card type failed');
+  return typeof res.data === 'number' ? res.data : Number(res.data);
 }
 
 /** Marks card inactive and creates a replacement card request; returns new request id. */
@@ -80,6 +89,28 @@ export async function getDropdowns(): Promise<CardDropdownsResponse> {
   const client = getApiClient();
   const res = await client.get<CardDropdownsResponse>(`${BASE}/dropdowns`);
   return res.success && res.data ? res.data : {};
+}
+
+/** Cards with production status 001 for the given card type (export-ready). */
+export async function getExportReadyCards(request: {
+  cardTypeId: number;
+  pan?: string;
+  relationshipNum?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<Card[]> {
+  const client = getApiClient();
+  const res = await client.post<Card[]>(`${BASE}/export-ready`, request);
+  if (!res.success || !res.data) return [];
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+/** Bulk export; returns server file path. Updates cards to status 002. */
+export async function bulkExportCards(cardIds: number[]): Promise<string> {
+  const client = getApiClient();
+  const res = await client.post<string>(`${BASE}/bulk-export`, { cardIds });
+  if (!res.success || res.data == null) throw new Error(res.message ?? 'Bulk export failed');
+  return typeof res.data === 'string' ? res.data : String(res.data);
 }
 
 export async function getAvailableAccounts(relationshipNum?: string): Promise<AccountOption[]> {

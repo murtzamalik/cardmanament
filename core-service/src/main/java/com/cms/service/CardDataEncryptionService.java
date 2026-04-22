@@ -110,14 +110,24 @@ public class CardDataEncryptionService {
             throw new RuntimeException("Card data decryption failed", e);
         }
     }
+//
+//    /**
+//     * Mask PAN for display: last 4 digits only (PCI DSS).
+//     */
+//    public String maskPan(String pan) {
+//        if (pan == null || pan.length() < 4) return "****";
+//        return "****" + pan.substring(pan.length() - 4);
+//    }
 
-    /**
-     * Mask PAN for display: last 4 digits only (PCI DSS).
-     */
+    /** Mask PAN for display: show first 6 and last 4 digits. */
     public String maskPan(String pan) {
-        if (pan == null || pan.length() < 4) return "****";
-        return "****" + pan.substring(pan.length() - 4);
+        if (pan == null || pan.length() <= 10) return "****";
+        return pan.substring(0, 6)
+                + "*".repeat(pan.length() - 10)
+                + pan.substring(pan.length() - 4);
     }
+
+
 
     /**
      * One-way hash for exact PAN lookup (e.g. find card by full PAN without storing plaintext).

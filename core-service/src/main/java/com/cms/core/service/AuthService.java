@@ -3,6 +3,8 @@ package com.cms.core.service;
 import com.cms.common.dto.AuthUserDto;
 import com.cms.common.security.JwtService;
 import com.cms.dto.response.LoginResponse;
+import com.cms.dto.response.MenuResponse;
+import com.cms.service.MenuService;
 import com.cms.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,15 +18,17 @@ public class AuthService {
 
     private final UserService userService;
     private final JwtService jwtService;
+    private final MenuService menuService;
 
     @Value("${jwt.expiration-ms:86400000}")
     private long expirationMs;
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-    public AuthService(UserService userService, JwtService jwtService) {
+    public AuthService(UserService userService, JwtService jwtService, MenuService menuService) {
         this.userService = userService;
         this.jwtService = jwtService;
+        this.menuService = menuService;
     }
 
     public Optional<LoginResponse> login(String loginId, String password) {
@@ -36,12 +40,15 @@ public class AuthService {
         AuthUserDto user = auth.get();
         String token = jwtService.generateToken(user.getLoginId(), user.getRoles());
         long expiresInSeconds = expirationMs / 1000;
+        // Fetch menus for user's roles
+        java.util.List<MenuResponse> menus = menuService.getMenusForRoles(user.getRoles());
         LoginResponse r = new LoginResponse();
         r.setToken(token);
         r.setLoginId(user.getLoginId());
         r.setFullName(user.getFullName());
         r.setExpiresIn(expiresInSeconds);
         r.setRoles(user.getRoles());
+        r.setMenus(menus);
         return Optional.of(r);
     }
 
@@ -58,6 +65,7 @@ public class AuthService {
         r.setFullName(user.getFullName());
         r.setExpiresIn(expiresInSeconds);
         r.setRoles(roles);
+        r.setMenus(menuService.getMenusForRoles(roles));
         return Optional.of(r);
     }
 }

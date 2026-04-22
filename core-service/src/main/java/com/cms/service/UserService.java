@@ -35,4 +35,10 @@ public interface UserService {
     UserResponse getUserResponse(String loginId);
 
     List<UserResponse> findAllResponses();
+
+    List<String> getRoleIdsByUserId(Long userId);
+
+    void assignRoleToUser(Long userId, String groupId);
+
+    void removeRoleFromUser(Long userId, String groupId);
 }

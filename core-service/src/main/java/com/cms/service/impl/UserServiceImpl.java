@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -59,6 +60,15 @@ public class UserServiceImpl implements com.cms.service.UserService {
         Optional<UsmUser> optUser = appId != null && !appId.isBlank()
             ? usmUserRepository.findByLoginIdAndAppId(loginId, appId)
             : usmUserRepository.findByLoginId(loginId);
+        if (optUser.isEmpty()) {
+            optUser = appId != null && !appId.isBlank()
+                ? usmUserRepository.findByLoginIdIgnoreCaseAndAppId(loginId, appId)
+                : usmUserRepository.findByLoginIdIgnoreCase(loginId);
+        }
+        if (optUser.isEmpty()) {
+            // Backward compatibility: allow login when APP_ID was stored blank/legacy.
+            optUser = usmUserRepository.findByLoginIdIgnoreCase(loginId);
+        }
         if (optUser.isEmpty()) return Optional.empty();
         UsmUser user = optUser.get();
         if (user.getWhenDeleted() != null) return Optional.empty();
@@ -75,16 +85,26 @@ public class UserServiceImpl implements com.cms.service.UserService {
     @Override
     public List<String> getRolesForUser(String loginId) {
         List<UsmUserGroup> userGroups = usmUserGroupRepository.findByLoginId(loginId);
-        List<String> roles = new ArrayList<>();
+        if (userGroups.isEmpty()) {
+            userGroups = usmUserGroupRepository.findByLoginIdIgnoreCase(loginId);
+        }
+        LinkedHashSet<String> roles = new LinkedHashSet<>();
         for (UsmUserGroup ug : userGroups) {
             if (ug.getGroupId() != null) {
                 usmGroupRepository.findByGroupId(ug.getGroupId()).ifPresent(g -> {
-                    if (g.getWhenDeleted() == null && g.getIsActive() != null && g.getIsActive().compareTo(BigDecimal.ONE) == 0)
-                        roles.add(g.getGroupName() != null ? g.getGroupName() : g.getGroupId());
+                    if (g.getWhenDeleted() == null && g.getIsActive() != null && g.getIsActive().compareTo(BigDecimal.ONE) == 0) {
+                        if (g.getGroupId() != null && !g.getGroupId().isBlank()) roles.add(g.getGroupId());
+                        // Backward-compatible: some environments use groupName in role checks/mappings.
+                        if (g.getGroupName() != null && !g.getGroupName().isBlank()) roles.add(g.getGroupName());
+                    }
                 });
             }
         }
-        return roles;
+        if (roles.isEmpty() && loginId != null && "admin".equalsIgnoreCase(loginId)) {
+            // Safety fallback for bootstrap admin users with missing user-group seed.
+            roles.add("ADMIN");
+        }
+        return new ArrayList<>(roles);
     }
 
     @Override
@@ -98,7 +118,7 @@ public class UserServiceImpl implements com.cms.service.UserService {
         user.setLoginId(loginId);
         user.setPassword(passwordEncoder.encode(password != null ? password : ""));
         user.setFullName(fullName);
-        user.setAppId(appId != null ? appId : defaultAppId);
+        user.setAppId(appId != null && !appId.isBlank() ? appId : defaultAppId);
         user.setIsActive(BigDecimal.ONE);
         user.setCreatedOn(LocalDateTime.now());
         user.setUpdatedOn(LocalDateTime.now());
@@ -185,6 +205,48 @@ public class UserServiceImpl implements com.cms.service.UserService {
     @Override
     public List<UserResponse> findAllResponses() {
         return findAll().stream().map(u -> getUserResponse(u.getLoginId())).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<String> getRoleIdsByUserId(Long userId) {
+        UsmUser user = usmUserRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
+        return usmUserGroupRepository.findByLoginId(user.getLoginId()).stream()
+            .map(UsmUserGroup::getGroupId)
+            .filter(java.util.Objects::nonNull)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void assignRoleToUser(Long userId, String groupId) {
+        UsmUser user = usmUserRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
+        if (groupId == null || groupId.isBlank()) throw new BusinessValidationException("groupId is required");
+        usmGroupRepository.findByGroupId(groupId)
+            .orElseThrow(() -> new ResourceNotFoundException("Role", groupId));
+        boolean alreadyAssigned = usmUserGroupRepository.findByLoginId(user.getLoginId()).stream()
+            .anyMatch(ug -> groupId.equals(ug.getGroupId()));
+        if (alreadyAssigned) return;
+        UsmUserGroup ug = new UsmUserGroup();
+        ug.setGroupId(groupId);
+        ug.setLoginId(user.getLoginId());
+        ug.setCreatedOn(LocalDateTime.now());
+        ug.setUpdatedOn(LocalDateTime.now());
+        usmUserGroupRepository.save(ug);
+    }
+
+    @Override
+    @Transactional
+    public void removeRoleFromUser(Long userId, String groupId) {
+        UsmUser user = usmUserRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
+        List<UsmUserGroup> userGroups = usmUserGroupRepository.findByLoginId(user.getLoginId());
+        for (UsmUserGroup ug : userGroups) {
+            if (groupId != null && groupId.equals(ug.getGroupId())) {
+                usmUserGroupRepository.delete(ug);
+            }
+        }
     }
 
     @Override

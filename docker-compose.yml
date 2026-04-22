@@ -25,6 +25,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-production}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       APP_DEFAULT_APP_ID: ${APP_DEFAULT_APP_ID:-CMS}
+      # CORS: comma-separated origins the browser may use (e.g. http://YOUR_PUBLIC_IP:7071). Overrides app.cors.allowed-origins.
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:7071,http://127.0.0.1:7071}
       # Export files (bureau feed) written here on approve-and-generate; downloadable from card view
       CMS_CARD_EXPORT_OUTPUT_DIR: /app/export
     extra_hosts:

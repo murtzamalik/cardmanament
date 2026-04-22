@@ -12,6 +12,11 @@ import { Tooltip } from 'primereact/tooltip';
 import { useRoles, useRoleCreate, useRoleUpdate, useRoleDelete } from '@/hooks/useRoles';
 import { AppDialog, ConfirmActionDialog, FormSection, FormField } from '@/components/ui';
 import type { RoleResponse, RoleCreateRequest, RoleUpdateRequest } from '@/types/role';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { menuService } from '@/services/security/MenuService';
+import { roleService } from '@/services/security/RoleService';
+import type { MenuResponse } from '@/types/menu';
+import { MultiSelect } from 'primereact/multiselect';
 
 export default function RolesPage() {
   const toast = useRef<Toast>(null);
@@ -25,12 +30,26 @@ export default function RolesPage() {
     active: true,
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [menuDialogOpen, setMenuDialogOpen] = useState(false);
+  const [selectedRoleForMenus, setSelectedRoleForMenus] = useState<RoleResponse | null>(null);
+  const [selectedMenuIds, setSelectedMenuIds] = useState<number[]>([]);
 
   const { data: roles = [], isLoading } = useRoles();
   const createMutation = useRoleCreate();
   const updateMutation = useRoleUpdate();
   const deleteMutation = useRoleDelete();
   const saveLoading = createMutation.isPending || updateMutation.isPending;
+  const qc = useQueryClient();
+  const { data: allMenus = [] } = useQuery({
+    queryKey: ['menus'],
+    queryFn: () => menuService.getAll(),
+  });
+  const assignMenusMutation = useMutation({
+    mutationFn: ({ roleCode, menuIds }: { roleCode: string; menuIds: number[] }) => roleService.assignRoleMenus(roleCode, menuIds),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['roles'] });
+    },
+  });
 
   const openCreate = () => {
     setEditingRole(null);
@@ -122,6 +141,23 @@ export default function RolesPage() {
         data-pr-position="top"
       />
       <Button
+        icon="pi pi-sitemap"
+        text
+        rounded
+        className="p-button-text"
+        onClick={async () => {
+          const roleCode = row.groupId;
+          const menus = await roleService.getRoleMenus(roleCode);
+          const flatten = (items: MenuResponse[]): number[] =>
+            items.flatMap((m) => [m.id, ...(m.children ? flatten(m.children) : [])]);
+          setSelectedRoleForMenus(row);
+          setSelectedMenuIds(flatten(menus));
+          setMenuDialogOpen(true);
+        }}
+        data-pr-tooltip="Assign menus"
+        data-pr-position="top"
+      />
+      <Button
         icon="pi pi-trash"
         text
         rounded
@@ -132,6 +168,13 @@ export default function RolesPage() {
       />
     </>
   );
+
+  const flattenMenus = (items: MenuResponse[], depth = 0): { label: string; value: number }[] =>
+    items.flatMap((m) => [
+      { label: `${'  '.repeat(depth)}${m.menuName} (${m.menuPath})`, value: m.id },
+      ...(m.children ? flattenMenus(m.children, depth + 1) : []),
+    ]);
+  const menuOptions = flattenMenus(allMenus);
 
   return (
     <div className="grid">
@@ -208,6 +251,42 @@ export default function RolesPage() {
         onAccept={confirmDelete}
         loading={deleteMutation.isPending}
       />
+
+      <AppDialog
+        visible={menuDialogOpen}
+        onHide={() => { setMenuDialogOpen(false); setSelectedRoleForMenus(null); }}
+        title={`Assign menus${selectedRoleForMenus ? ` - ${selectedRoleForMenus.groupId}` : ''}`}
+        subtitle="Choose menus available for this role."
+        onPrimary={async () => {
+          if (!selectedRoleForMenus) return;
+          try {
+            await assignMenusMutation.mutateAsync({ roleCode: selectedRoleForMenus.groupId, menuIds: selectedMenuIds });
+            toast.current?.show({ severity: 'success', summary: 'Success', detail: 'Role menus updated', life: 3000 });
+            setMenuDialogOpen(false);
+          } catch (e) {
+            toast.current?.show({ severity: 'error', summary: 'Error', detail: e instanceof Error ? e.message : 'Update failed', life: 5000 });
+          }
+        }}
+        onSecondary={() => { setMenuDialogOpen(false); setSelectedRoleForMenus(null); }}
+        loading={assignMenusMutation.isPending}
+        width="40rem"
+      >
+        <FormSection title="Menus" className="pt-0">
+          <FormField label="Assigned menus" htmlFor="role-menu-assign">
+            <MultiSelect
+              inputId="role-menu-assign"
+              value={selectedMenuIds}
+              options={menuOptions}
+              onChange={(e) => setSelectedMenuIds(e.value ?? [])}
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select menus"
+              filter
+              className="w-full"
+            />
+          </FormField>
+        </FormSection>
+      </AppDialog>
     </div>
   );
 }

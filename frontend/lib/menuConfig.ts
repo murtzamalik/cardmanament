@@ -11,6 +11,7 @@ export const menuItems: AppMenuItem[] = [
     items: [
       { label: 'Users', icon: 'pi pi-fw pi-users', to: ROUTES.users },
       { label: 'Roles', icon: 'pi pi-fw pi-shield', to: ROUTES.roles },
+      { label: 'Menus', icon: 'pi pi-fw pi-sitemap', to: ROUTES.menus },
       { label: 'Permissions', icon: 'pi pi-fw pi-key', to: ROUTES.permissions },
     ],
   },
@@ -22,6 +23,7 @@ export const menuItems: AppMenuItem[] = [
       { label: 'Change card type', icon: 'pi pi-fw pi-sync', to: ROUTES.cardsChangeType },
       { label: 'Replacement request', icon: 'pi pi-fw pi-replay', to: ROUTES.cardsReplacement },
       { label: 'Change card status', icon: 'pi pi-fw pi-flag', to: ROUTES.cardsChangeStatus },
+      { label: 'Card export', icon: 'pi pi-fw pi-download', to: ROUTES.cardsExport },
     ],
   },
   {

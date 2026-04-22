@@ -6,7 +6,7 @@ import { useAuth } from '@/services/auth/AuthContext';
 import { ROUTES } from '@/lib/constants';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, initialized } = useAuth();
+  const { isAuthenticated, initialized, hasAccess } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -15,8 +15,13 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     if (!initialized) return;
     if (!isAuthenticated) {
       router.replace(ROUTES.login);
+      return;
     }
-  }, [initialized, isAuthenticated, router, pathname]);
+    const bypassPaths = [ROUTES.home, ROUTES.unauthorized];
+    if (!bypassPaths.includes(pathname) && !hasAccess(pathname)) {
+      router.replace(ROUTES.unauthorized);
+    }
+  }, [initialized, isAuthenticated, router, pathname, hasAccess]);
 
   if (!initialized || !isAuthenticated) {
     return (

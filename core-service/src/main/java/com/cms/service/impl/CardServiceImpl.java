@@ -19,6 +19,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.cms.dal.entity.CardRequest;
 import java.util.List;
+import com.cms.dto.request.ExportReadyRequest;
+import com.cms.dto.request.BulkExportRequest;
+import com.cms.dto.request.BulkRenewRequest;
+import com.cms.service.CardTrackDataFormatter;
+import com.cms.service.CvvGenerationService;
+import com.cms.service.CardDataEncryptionService;
+import java.nio.charset.StandardCharsets;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.Base64;
+import java.util.ArrayList;
+
+
 
 
 import java.time.LocalDateTime;
@@ -40,13 +53,18 @@ public class CardServiceImpl implements CardService {
     private final LimitProfileRepository limitProfileRepository;
     private final CardDataEncryptionService encryptionService;
     private final NewCardRequestService newCardRequestService;
+    private final com.cms.service.CardExportFileService cardExportFileService;
+    private final CardTrackDataFormatter cardTrackDataFormatter;
+    private final CvvGenerationService cvvGenerationService;
 
 
     public CardServiceImpl(CardRepository cardRepository, CardAccountRepository cardAccountRepository,
                            CardStatusRepository cardStatusRepository, CardTypeRepository cardTypeRepository,
                            CardProductRepository cardProductRepository, BranchRepository branchRepository,
                            AccountRepository accountRepository, CardMapper cardMapper, BranchMapper branchMapper,
-                           LimitProfileRepository limitProfileRepository, CardDataEncryptionService encryptionService, NewCardRequestService newCardRequestService) {
+                           LimitProfileRepository limitProfileRepository, CardDataEncryptionService encryptionService,
+                           NewCardRequestService newCardRequestService,
+                           com.cms.service.CardExportFileService cardExportFileService, CardTrackDataFormatter cardTrackDataFormatter, CvvGenerationService cvvGenerationService) {
         this.cardRepository = cardRepository;
         this.cardAccountRepository = cardAccountRepository;
         this.cardStatusRepository = cardStatusRepository;
@@ -59,6 +77,9 @@ public class CardServiceImpl implements CardService {
         this.limitProfileRepository = limitProfileRepository;
         this.encryptionService = encryptionService;
         this.newCardRequestService = newCardRequestService;
+        this.cardExportFileService = cardExportFileService;
+        this.cardTrackDataFormatter = cardTrackDataFormatter;
+        this.cvvGenerationService = cvvGenerationService;
     }
 
     /**
@@ -69,6 +90,12 @@ public class CardServiceImpl implements CardService {
             return encryptionService.decrypt(card.getPanEncrypted());
         }
         return card.getPan();
+    }
+
+    private boolean isHotStatusCode(String statusCode) {
+        if (statusCode == null) return false;
+        String code = statusCode.trim();
+        return "HOT".equalsIgnoreCase(code) || "003".equals(code);
     }
 
     @Override
@@ -274,12 +301,19 @@ public class CardServiceImpl implements CardService {
     public CardResponse updateCard(Long cardId, CardUpdateRequest request) {
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+        boolean cardIsHot = isHotStatusCode(card.getCardStatusCode());
         if (request.getCardStatusId() != null) {
             CardStatus cs = cardStatusRepository.findById(request.getCardStatusId())
                     .orElseThrow(() -> new ResourceNotFoundException("CardStatus", String.valueOf(request.getCardStatusId())));
+            if (cardIsHot && !isHotStatusCode(cs.getCardStatusCode())) {
+                throw new BusinessValidationException("HOT card status cannot be changed.");
+            }
             card.setCardStatusId(cs.getId());
             card.setCardStatusCode(cs.getCardStatusCode());
         } else if (request.getCardStatusCode() != null) {
+            if (cardIsHot && !isHotStatusCode(request.getCardStatusCode())) {
+                throw new BusinessValidationException("HOT card status cannot be changed.");
+            }
             card.setCardStatusCode(request.getCardStatusCode());
             cardStatusRepository.findByCardStatusCode(request.getCardStatusCode())
                     .ifPresent(cs -> card.setCardStatusId(cs.getId()));
@@ -360,7 +394,7 @@ public class CardServiceImpl implements CardService {
     public void closeCard(Long cardId) {
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
-        card.setCardStatusCode("CLOSED");
+        card.setCardStatusCode("HOT");
         card.setWhenDeleted(LocalDateTime.now());
         card.setUpdatedOn(LocalDateTime.now());
         cardRepository.save(card);
@@ -374,6 +408,34 @@ public class CardServiceImpl implements CardService {
     }
 
     @Override
+    public List<CardResponse> getExportReadyCards(ExportReadyRequest request) {
+        if (request.getCardTypeId() == null)
+            throw new BusinessValidationException("cardTypeId is required");
+        List<Card> cards = cardRepository.findByCardProdStatusIdAndCardTypeId("001", request.getCardTypeId());
+        return cardMapper.toResponseList(cards);
+    }
+
+    @Override
+    @Transactional
+    public String bulkExport(BulkExportRequest request) {
+        if (request.getCardIds() == null || request.getCardIds().isEmpty())
+            throw new BusinessValidationException("cardIds is required");
+        List<Card> cards = cardRepository.findAllById(request.getCardIds());
+        if (cards.isEmpty())
+            throw new ResourceNotFoundException("Cards", "provided IDs");
+        String exportPath = cardExportFileService.generateBulkExportFile(cards);
+        for (Card card : cards) {
+            card.setCardProdStatusId("002");
+            card.setExportFilePath(exportPath);
+            card.setUpdatedOn(LocalDateTime.now());
+        }
+        cardRepository.saveAll(cards);
+        return exportPath;
+    }
+
+
+
+    @Override
     public List<CardResponse> searchByExpiryDate(ExpirySearchRequest request) {
         LocalDateTime from = request.getDateFrom() != null
                 ? request.getDateFrom().atStartOfDay()
@@ -382,23 +444,64 @@ public class CardServiceImpl implements CardService {
                 ? request.getDateTo().atTime(23, 59, 59)
                 : LocalDateTime.of(2099, 12, 31, 23, 59, 59);
         List<Card> cards = cardRepository.findByExpiryDateBetween(from, to);
+        String panQuery = request.getPan() != null ? request.getPan().replaceAll("\\D", "") : "";
+        if (!panQuery.isBlank()) {
+            cards = cards.stream()
+                    .filter(c -> {
+                        String pan = c.getPan() != null ? c.getPan().replaceAll("\\D", "") : "";
+                        String last4 = c.getPanLast4() != null ? c.getPanLast4().replaceAll("\\D", "") : "";
+                        return (!pan.isBlank() && pan.contains(panQuery)) || (!last4.isBlank() && last4.contains(panQuery));
+                    })
+                    .toList();
+        }
         return cardMapper.toResponseList(cards);
     }
 
     @Override
     @Transactional
-    public void changeCardType(Long cardId, ChangeCardTypeRequest request) {
+    public Long changeCardType(Long cardId, ChangeCardTypeRequest request) {
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
+        if ("HOT".equalsIgnoreCase(card.getCardStatusCode())) {
+            throw new BusinessValidationException("HOT cards cannot be changed.");
+        }
         CardType cardType = cardTypeRepository.findById(request.getCardTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("CardType", String.valueOf(request.getCardTypeId())));
         if (cardType.getIsActive() == null || cardType.getIsActive() != 1) {
             throw new BusinessValidationException("Card Type is not active");
         }
-        card.setCardTypeId(cardType.getId());
-        card.setCardTypeCode(cardType.getCardTypeCode());
+
+        if (card.getRelationshipNum() == null || card.getRelationshipNum().isBlank()) {
+            throw new BusinessValidationException("Card has no relationship number; cannot create change type request.");
+        }
+        List<CardAccount> linkedAccounts = cardAccountRepository.findByCardId(cardId);
+        String accountNum = linkedAccounts.isEmpty() ? null : linkedAccounts.get(0).getAccountNum();
+        if (accountNum == null || accountNum.isBlank()) {
+            throw new BusinessValidationException("Link an account to this card before changing type.");
+        }
+        if (card.getCardProductId() == null && (card.getProductCode() == null || card.getProductCode().isBlank())) {
+            throw new BusinessValidationException("Card has no product; cannot create change type request.");
+        }
+        if (card.getBranchId() == null && (card.getBranchCode() == null || card.getBranchCode().isBlank())) {
+            throw new BusinessValidationException("Card has no branch; cannot create change type request.");
+        }
+
+        NewCardRequestCreate newRequest = new NewCardRequestCreate();
+        newRequest.setRelationshipNum(card.getRelationshipNum());
+        newRequest.setAccountNum(accountNum);
+        newRequest.setCardTitle(card.getCardTitle());
+        newRequest.setCardTypeId(cardType.getId());
+        newRequest.setCardTypeCode(cardType.getCardTypeCode());
+        newRequest.setProductId(card.getCardProductId());
+        newRequest.setProductCode(card.getProductCode());
+        newRequest.setBranchId(card.getBranchId());
+        newRequest.setBranchCode(card.getBranchCode());
+        newRequest.setRequestTypeId("CHANGE_TYPE");
+
         card.setUpdatedOn(LocalDateTime.now());
         cardRepository.save(card);
+        CardRequestResponse response = newCardRequestService.create(newRequest, "system");
+        return response.getRequestId();
     }
 
     @Override
@@ -425,7 +528,7 @@ public class CardServiceImpl implements CardService {
             throw new BusinessValidationException("Card has no branch; cannot create replacement request.");
         }
 
-        card.setCardStatusCode("INACTIVE");
+        card.setCardStatusCode("WARM");
         card.setIsReplaced(1);
         card.setUpdatedOn(LocalDateTime.now());
         cardRepository.save(card);
@@ -446,5 +549,64 @@ public class CardServiceImpl implements CardService {
         return response.getRequestId();
     }
 
+    @Override
+    @Transactional
+    public List<Long> bulkRenew(BulkRenewRequest request) {
+        if (request.getCardIds() == null || request.getCardIds().isEmpty())
+            throw new BusinessValidationException("cardIds is required");
+
+        List<Long> renewedIds = new ArrayList<>();
+        List<Card> cards = cardRepository.findAllById(request.getCardIds());
+        if (cards.isEmpty()) {
+            throw new ResourceNotFoundException("Cards", "provided IDs");
+        }
+        if (cards.size() != request.getCardIds().size()) {
+            throw new BusinessValidationException("One or more selected card IDs are invalid");
+        }
+
+        for (Card card : cards) {
+            YearMonth baseExpiryMonth = card.getExpiryDate() != null
+                    ? YearMonth.from(card.getExpiryDate())
+                    : YearMonth.now();
+            YearMonth newExpiryMonth = baseExpiryMonth.plusYears(5);
+            LocalDateTime newExpiry = newExpiryMonth.atEndOfMonth().atTime(23, 59, 59);
+            card.setExpiryDate(newExpiry);
+
+            String expiryYyMm = newExpiry.format(DateTimeFormatter.ofPattern("yyMM"));
+
+            String pan = null;
+            if (card.getPanEncrypted() != null && !card.getPanEncrypted().isBlank()) {
+                try {
+                    pan = encryptionService.decrypt(card.getPanEncrypted());
+                } catch (RuntimeException ex) {
+                    // Backward compatibility for legacy rows where encrypted value may be invalid.
+                    pan = card.getPan();
+                }
+            } else {
+                pan = card.getPan();
+            }
+            if (pan == null || pan.isBlank()) {
+                throw new BusinessValidationException("PAN missing for cardId " + card.getCardId());
+            }
+
+            CvvGenerationService.CvvResult cvvResult = cvvGenerationService.generate(pan, expiryYyMm);
+
+            String track1 = cardTrackDataFormatter.formatTrack1(pan, expiryYyMm, card.getCardTitle(), cvvResult.cvv1());
+            String track2 = cardTrackDataFormatter.formatTrack2(pan, expiryYyMm, cvvResult.cvv1());
+
+            card.setCvv(Base64.getEncoder().encodeToString(cvvResult.cvv1().getBytes(StandardCharsets.UTF_8)));
+            card.setCvv2(Base64.getEncoder().encodeToString(cvvResult.cvv2().getBytes(StandardCharsets.UTF_8)));
+            card.setIcvv(Base64.getEncoder().encodeToString(cvvResult.icvv().getBytes(StandardCharsets.UTF_8)));
+            card.setTrack1Data(Base64.getEncoder().encodeToString(track1.getBytes(StandardCharsets.UTF_8)));
+            card.setTrack2Data(Base64.getEncoder().encodeToString(track2.getBytes(StandardCharsets.UTF_8)));
+
+            card.setCardProdStatusId("001");
+            card.setUpdatedOn(LocalDateTime.now());
+
+            cardRepository.save(card);
+            renewedIds.add(card.getCardId());
+        }
+        return renewedIds;
+    }
 
 }

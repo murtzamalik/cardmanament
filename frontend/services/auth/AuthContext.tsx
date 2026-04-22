@@ -4,13 +4,15 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { useRouter } from 'next/navigation';
 import { initApiClient, clearStoredToken, getStoredToken } from '@/services/api/client';
 import { AuthService } from '@/services/auth/AuthService';
-import type { LoginResponse } from '@/types/auth';
 import { ROUTES } from '@/lib/constants';
+import type { MenuResponse } from '@/types/menu';
+import { clearStoredMenus, getStoredMenus, hasMenuAccess, setStoredMenus } from '@/lib/rbac';
 
 export interface AuthUser {
   loginId: string;
   fullName: string;
   roles: string[];
+  menus: MenuResponse[];
 }
 
 interface AuthState {
@@ -25,6 +27,7 @@ interface AuthContextValue extends AuthState {
   login: (loginId: string, password: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
+  hasAccess: (path: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -41,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const onUnauthorized = useCallback(() => {
     clearStoredToken();
+    clearStoredMenus();
     setUser(null);
     setHasToken(false);
     router.push(ROUTES.login);
@@ -56,10 +60,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (token) {
       authService.refresh().then((res) => {
         if (res) {
+          const menus = res.menus ?? getStoredMenus();
+          setStoredMenus(menus);
           setUser({
             loginId: res.loginId,
             fullName: res.fullName ?? '',
             roles: res.roles ?? [],
+            menus,
           });
         }
       }).catch(() => { /* keep token, user may stay null */ });
@@ -74,10 +81,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       try {
         const res = await authService.login(loginId, password);
+        const menus = res.menus ?? [];
+        setStoredMenus(menus);
         setUser({
           loginId: res.loginId,
           fullName: res.fullName ?? '',
           roles: res.roles ?? [],
+          menus,
         });
         setHasToken(true);
         router.push(ROUTES.home);
@@ -91,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     authService.logout();
+    clearStoredMenus();
     setUser(null);
     setHasToken(false);
     setError(null);
@@ -98,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const clearError = useCallback(() => setError(null), []);
+  const hasAccess = useCallback((path: string) => hasMenuAccess(path, user?.menus), [user?.menus]);
 
   const value: AuthContextValue = useMemo(
     () => ({
@@ -108,8 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       clearError,
+      hasAccess,
     }),
-    [isAuthenticated, user, error, initialized, login, logout, clearError]
+    [isAuthenticated, user, error, initialized, login, logout, clearError, hasAccess]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

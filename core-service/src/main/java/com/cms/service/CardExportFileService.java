@@ -164,6 +164,11 @@ private void writeCsv(Card card, Long requestId, Path path) throws IOException {
 
     // Added this method for format change of export file
     private void writeBureauFormat(Card card, Long requestId, Path path) throws IOException {
+        String line = buildBureauLine(card, requestId);
+        Files.writeString(path, line + "\n", StandardCharsets.UTF_8);
+    }
+
+    private String buildBureauLine(Card card, Long seqNum) {
         String track1 = card.getTrack1Data() != null ? new String(Base64.getDecoder().decode(card.getTrack1Data()), StandardCharsets.UTF_8) : "";
         String track2 = card.getTrack2Data() != null ? new String(Base64.getDecoder().decode(card.getTrack2Data()), StandardCharsets.UTF_8) : "";
         String cvv2 = card.getCvv2() != null ? new String(Base64.getDecoder().decode(card.getCvv2()), StandardCharsets.UTF_8) : "";
@@ -174,9 +179,9 @@ private void writeCsv(Card card, Long requestId, Path path) throws IOException {
         String issueYear = card.getIssuedDate() != null ? card.getIssuedDate().format(DateTimeFormatter.ofPattern("yy")) : "";
         String expiryMMYY = card.getExpiryDate() != null ? card.getExpiryDate().format(DateTimeFormatter.ofPattern("MM/yy")) : "";
         String cardTitle = card.getCardTitle() != null ? card.getCardTitle() : "";
-        String seqNum = String.format("%06d", requestId);
+        String seqFormatted = String.format("%06d", seqNum);
         String relNum = padRelationshipNum(card.getRelationshipNum());
-        String line = seqNum
+        return seqFormatted
                 + "\"" + panFormatted + "\""
                 + "    "
                 + issueYear
@@ -191,7 +196,6 @@ private void writeCsv(Card card, Long requestId, Path path) throws IOException {
                 + track2
                 + relNum
                 + icvv;
-        Files.writeString(path, line + "\n", StandardCharsets.UTF_8);
     }
 
     // Added this method for (Spaces in between primary account number , 4 digits then space etc)
@@ -239,4 +243,28 @@ private void writeCsv(Card card, Long requestId, Path path) throws IOException {
         String name = Paths.get(storedPath).getFileName().toString();
         return name != null && !name.isBlank() ? name : "card_export.txt";
     }
+
+    public String generateBulkExportFile(java.util.List<Card> cards) {
+        if (outputDir.isBlank()) return null;
+        try {
+            Path dir = Paths.get(outputDir);
+            if (!Files.exists(dir)) Files.createDirectories(dir);
+            String date = LocalDateTime.now().format(DATE_FORMAT);
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            String fileName = "bulk_export_" + date + "_" + timestamp + ".txt";
+            Path filePath = dir.resolve(fileName);
+            StringBuilder sb = new StringBuilder();
+            int seq = 1;
+            for (Card card : cards) {
+                sb.append(buildBureauLine(card, (long) seq));
+                sb.append("\n");
+                seq++;
+            }
+            Files.writeString(filePath, sb.toString(), StandardCharsets.UTF_8);
+            return filePath.toAbsolutePath().toString();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to write bulk export file: " + e.getMessage(), e);
+        }
+    }
+
 }

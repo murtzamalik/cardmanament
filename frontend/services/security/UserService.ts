@@ -36,4 +36,23 @@ export const userService = {
     const res = await client.delete<unknown>(`${BASE}/${id}`);
     if (!res.success) throw new Error(res.message ?? 'Delete failed');
   },
+
+  async getUserRoles(id: number | string): Promise<string[]> {
+    const client = getApiClient();
+    const res = await client.get<string[]>(`${BASE}/${id}/roles`);
+    if (!res.success || !res.data) return [];
+    return Array.isArray(res.data) ? res.data : [];
+  },
+
+  async assignUserRole(id: number | string, groupId: string): Promise<void> {
+    const client = getApiClient();
+    const res = await client.post<unknown>(`${BASE}/${id}/roles`, { groupId });
+    if (!res.success) throw new Error(res.message ?? 'Assign role failed');
+  },
+
+  async removeUserRole(id: number | string, roleCode: string): Promise<void> {
+    const client = getApiClient();
+    const res = await client.delete<unknown>(`${BASE}/${id}/roles/${encodeURIComponent(roleCode)}`);
+    if (!res.success) throw new Error(res.message ?? 'Remove role failed');
+  },
 };

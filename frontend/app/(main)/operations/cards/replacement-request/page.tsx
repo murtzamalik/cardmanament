@@ -1,41 +1,80 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from 'primereact/button';
+import { Calendar } from 'primereact/calendar';
+import { Column } from 'primereact/column';
+import { DataTable } from 'primereact/datatable';
+import { Dropdown } from 'primereact/dropdown';
 import { InputText } from 'primereact/inputtext';
 import { Toast } from 'primereact/toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as CardService from '@/services/cards/CardService';
 import { ConfirmActionDialog, FormSection, FormField } from '@/components/ui';
-import { CARD_RETURN_FROM_PARAM, ROUTES } from '@/lib/constants';
+import type { Card } from '@/types/card';
+
+function toLocalDate(value: Date): string {
+  const y = value.getFullYear();
+  const m = String(value.getMonth() + 1).padStart(2, '0');
+  const d = String(value.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 export default function ReplacementRequestPage() {
-  const router = useRouter();
   const toast = React.useRef<Toast>(null);
   const queryClient = useQueryClient();
-  const [cardIdInput, setCardIdInput] = useState('');
-  const [cardId, setCardId] = useState<number | null>(null);
+  const [pan, setPan] = useState('');
+  const [relationshipNum, setRelationshipNum] = useState('');
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
+  const [cardTypeId, setCardTypeId] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(10);
+  const [results, setResults] = useState<Card[]>([]);
+  const [totalElements, setTotalElements] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [lastRequestId, setLastRequestId] = useState<number | null>(null);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
-  const { data: card, isFetching: cardLoading } = useQuery({
-    queryKey: ['card', cardId],
-    queryFn: () => CardService.getCardById(cardId!),
-    enabled: cardId != null && Number.isFinite(cardId) && cardId > 0,
+  const { data: dropdowns = {} } = useQuery({
+    queryKey: ['card-dropdowns'],
+    queryFn: CardService.getDropdowns,
+  });
+
+  const typeOptions =
+    dropdowns.cardTypes?.map((t) => ({ label: `${t.name ?? t.code} (${t.code})`, value: t.id })) ?? [];
+
+  const searchMutation = useMutation({
+    mutationFn: (args: { page: number; size: number }) =>
+      CardService.searchCards({
+        pan: pan.trim() || undefined,
+        relationshipNum: relationshipNum.trim() || undefined,
+        cardTypeId,
+        dateFrom: fromDate ? toLocalDate(fromDate) : undefined,
+        dateTo: toDate ? toLocalDate(toDate) : undefined,
+        page: args.page,
+        size: args.size,
+      }),
+    onSuccess: (res) => {
+      setResults(res.content ?? []);
+      setTotalElements(res.totalElements ?? 0);
+      setPage(res.page ?? 0);
+      setRows(res.size ?? rows);
+    },
+    onError: (e: Error) => {
+      toast.current?.show({ severity: 'error', summary: 'Search failed', detail: e.message, life: 5000 });
+    },
   });
 
   const replacementMutation = useMutation({
     mutationFn: () => {
-      if (cardId == null || cardId < 1) throw new Error('Enter a valid card ID');
-      return CardService.createReplacementRequest(cardId);
+      if (!selectedCard?.cardId) throw new Error('No card selected');
+      return CardService.createReplacementRequest(selectedCard.cardId);
     },
     onSuccess: (requestId) => {
-      setLastRequestId(requestId);
       setConfirmOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['card', cardId] });
+      setSelectedCard(null);
       queryClient.invalidateQueries({ queryKey: ['cards-search'] });
+      searchMutation.mutate({ page, size: rows });
       toast.current?.show({
         severity: 'success',
         summary: 'Replacement request created',
@@ -48,33 +87,13 @@ export default function ReplacementRequestPage() {
     },
   });
 
-  const parseCardId = (): number | null => {
-    const n = parseInt(cardIdInput.trim(), 10);
-    if (!Number.isFinite(n) || n < 1) return null;
-    return n;
+  const onSearchClick = () => {
+    setPage(0);
+    searchMutation.mutate({ page: 0, size: rows });
   };
 
-  const loadCard = () => {
-    const id = parseCardId();
-    if (id == null) {
-      toast.current?.show({ severity: 'warn', summary: 'Card ID', detail: 'Enter a positive card ID', life: 3000 });
-      return;
-    }
-    setCardId(id);
-    setLastRequestId(null);
-    queryClient.invalidateQueries({ queryKey: ['card', id] });
-  };
-
-  const openConfirm = () => {
-    if (cardId == null || cardId < 1 || !card) {
-      toast.current?.show({
-        severity: 'warn',
-        summary: 'Load card first',
-        detail: 'Enter card ID and load the card before requesting replacement.',
-        life: 4000,
-      });
-      return;
-    }
+  const openConfirm = (card: Card) => {
+    setSelectedCard(card);
     setConfirmOpen(true);
   };
 
@@ -86,73 +105,93 @@ export default function ReplacementRequestPage() {
           Replacement card request
         </h1>
         <p className="m-0 text-color-secondary" style={{ fontSize: '0.875rem' }}>
-          Marks the card inactive and creates a new card request with the same details. Confirm before submitting.
+          Search cards and request replacement for a selected card.
         </p>
       </div>
 
-      <FormSection title="Card" className="pb-3">
+      <FormSection title="Search filters" className="pb-3">
         <div className="flex flex-wrap align-items-end gap-2">
-          <FormField label="Card ID" htmlFor="rep-card-id" className="mb-0">
+          <FormField label="PAN" htmlFor="rep-pan" className="mb-0">
             <InputText
-              id="rep-card-id"
-              value={cardIdInput}
-              onChange={(e) => setCardIdInput(e.target.value)}
-              placeholder="e.g. 1"
-              inputMode="numeric"
+              id="rep-pan"
+              value={pan}
+              onChange={(e) => setPan(e.target.value)}
+              placeholder="PAN or last 4"
               className="w-12rem"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') loadCard();
-              }}
             />
           </FormField>
-          <Button type="button" label="Load card" icon="pi pi-download" onClick={loadCard} loading={cardLoading} />
-          {card && (
-            <Button
-              type="button"
-              label="Open detail"
-              icon="pi pi-external-link"
-              text
-              onClick={() =>
-                router.push(
-                  `/operations/cards/${card.cardId}?${CARD_RETURN_FROM_PARAM}=${encodeURIComponent(ROUTES.cardsReplacement)}`
-                )
-              }
+          <FormField label="Relationship Number" htmlFor="rep-rel" className="mb-0">
+            <InputText
+              id="rep-rel"
+              value={relationshipNum}
+              onChange={(e) => setRelationshipNum(e.target.value)}
+              className="w-12rem"
             />
-          )}
+          </FormField>
+          <FormField label="Date From" htmlFor="rep-from" className="mb-0">
+            <Calendar id="rep-from" value={fromDate} onChange={(e) => setFromDate(e.value as Date | null)} showIcon />
+          </FormField>
+          <FormField label="Date To" htmlFor="rep-to" className="mb-0">
+            <Calendar id="rep-to" value={toDate} onChange={(e) => setToDate(e.value as Date | null)} showIcon />
+          </FormField>
+          <FormField label="Card Type" htmlFor="rep-type" className="mb-0">
+            <Dropdown
+              inputId="rep-type"
+              value={cardTypeId}
+              options={typeOptions}
+              onChange={(e) => setCardTypeId(e.value ?? null)}
+              placeholder="All card types"
+              showClear
+              filter
+              className="w-15rem"
+            />
+          </FormField>
+          <Button type="button" label="Search" icon="pi pi-search" onClick={onSearchClick} loading={searchMutation.isPending} />
         </div>
-        {card && (
-          <p className="mt-3 mb-0 text-color-secondary" style={{ fontSize: '0.875rem' }}>
-            <strong className="text-color">PAN:</strong> {card.panMasked ?? '—'} ·{' '}
-            <strong className="text-color">Type:</strong> {card.cardTypeName ?? card.cardTypeCode ?? '—'} ·{' '}
-            <strong className="text-color">Status:</strong> {card.cardStatusName ?? card.cardStatusCode ?? '—'}
-          </p>
-        )}
       </FormSection>
 
-      <FormSection title="Request replacement" className="pb-3">
-        <Button
-          label="Create replacement request…"
-          icon="pi pi-replay"
-          severity="danger"
-          onClick={openConfirm}
-          disabled={!card}
+      <DataTable
+        value={results}
+        dataKey="cardId"
+        loading={searchMutation.isPending}
+        paginator
+        lazy
+        first={page * rows}
+        rows={rows}
+        totalRecords={totalElements}
+        onPage={(e) => {
+          const nextPage = Math.floor((e.first ?? 0) / (e.rows ?? rows));
+          const nextRows = e.rows ?? rows;
+          setPage(nextPage);
+          setRows(nextRows);
+          searchMutation.mutate({ page: nextPage, size: nextRows });
+        }}
+        emptyMessage="No cards found."
+      >
+        <Column field="panMasked" header="PAN" />
+        <Column field="cardTitle" header="Card Title" />
+        <Column field="cardTypeName" header="Card Type" body={(r: Card) => r.cardTypeName ?? r.cardTypeCode ?? '—'} />
+        <Column field="branchName" header="Branch" body={(r: Card) => r.branchName ?? r.branchCode ?? '—'} />
+        <Column field="cardStatusName" header="Status" body={(r: Card) => r.cardStatusName ?? r.cardStatusCode ?? '—'} />
+        <Column
+          field="expiryDate"
+          header="Expiry Date"
+          body={(r: Card) => (r.expiryDate ? new Date(r.expiryDate).toLocaleDateString() : '—')}
         />
-        {lastRequestId != null && (
-          <p className="mt-3 mb-0">
-            Last created request:{' '}
-            <Link href={ROUTES.cardRequests} className="text-primary font-medium">
-              #{lastRequestId}
-            </Link>{' '}
-            (see Card Requests)
-          </p>
-        )}
-      </FormSection>
+        <Column
+          header="Action"
+          body={(row: Card) => (
+            <Button type="button" label="Request Replacement" size="small" severity="danger" onClick={() => openConfirm(row)} />
+          )}
+          style={{ width: '14rem' }}
+        />
+      </DataTable>
 
       <ConfirmActionDialog
         visible={confirmOpen}
         onHide={() => setConfirmOpen(false)}
-        message="Create replacement request for this card?"
-        detail="The card will be marked inactive and a new card request will be created."
+        message="Are you sure? Old card will be set to INACTIVE."
+        detail={`Card: ${selectedCard?.panMasked ?? '—'}`}
         variant="danger"
         acceptLabel="Create request"
         loading={replacementMutation.isPending}
