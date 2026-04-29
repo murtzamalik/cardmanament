@@ -281,9 +281,11 @@ export default function CardsExpirySearchPage() {
       </FormSection>
 
       <DataTable
+
         value={rows}
         dataKey="cardId"
         selection={selectedRows}
+        selectionMode="multiple"
         onSelectionChange={(e) => setSelectedRows(e.value as Card[])}
         loading={searchMutation.isPending}
         paginator
