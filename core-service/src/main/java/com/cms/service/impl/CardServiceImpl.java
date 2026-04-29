@@ -394,7 +394,7 @@ public class CardServiceImpl implements CardService {
     public void closeCard(Long cardId) {
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Card", String.valueOf(cardId)));
-        card.setCardStatusCode("HOT");
+        card.setCardStatusCode("003");
         card.setWhenDeleted(LocalDateTime.now());
         card.setUpdatedOn(LocalDateTime.now());
         cardRepository.save(card);
@@ -528,7 +528,7 @@ public class CardServiceImpl implements CardService {
             throw new BusinessValidationException("Card has no branch; cannot create replacement request.");
         }
 
-        card.setCardStatusCode("WARM");
+        card.setCardStatusCode("002");
         card.setIsReplaced(1);
         card.setUpdatedOn(LocalDateTime.now());
         cardRepository.save(card);

@@ -108,7 +108,7 @@ public class CardGenerationServiceImpl implements CardGenerationService {
         YearMonth expiryMonth = YearMonth.now().plusYears(5);
         card.setExpiryDate(expiryMonth.atEndOfMonth().atTime(23, 59, 59));
         //card.setExpiryDate(LocalDateTime.now().plusYears(5));
-        card.setCardStatusCode("COLD");
+        card.setCardStatusCode("001");
         card.setCreatedOn(LocalDateTime.now());
         card.setUpdatedOn(LocalDateTime.now());
         card.setCreatedBy("system");

@@ -36,6 +36,7 @@ export const ROUTES = {
   limitProfiles: '/housekeeping/limit-profiles',
   products: '/housekeeping/products',
   cardTypes: '/housekeeping/card-types',
+  auditLogs: '/security/audit-logs',
   cards: '/operations/cards',
   cardsExpiry: '/operations/cards/expiry',
   cardsChangeType: '/operations/cards/change-type',

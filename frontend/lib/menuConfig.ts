@@ -13,6 +13,7 @@ export const menuItems: AppMenuItem[] = [
       { label: 'Roles', icon: 'pi pi-fw pi-shield', to: ROUTES.roles },
       { label: 'Menus', icon: 'pi pi-fw pi-sitemap', to: ROUTES.menus },
       { label: 'Permissions', icon: 'pi pi-fw pi-key', to: ROUTES.permissions },
+      { label: 'Audit Logs', icon: 'pi pi-fw pi-history', to: ROUTES.auditLogs },
     ],
   },
   {
