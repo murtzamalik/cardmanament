@@ -1,0 +1,6 @@
+-- PCI DSS: Add columns for encrypted PAN storage. Backfill via application on first read.
+ALTER TABLE CARD ADD PAN_ENCRYPTED VARCHAR2(500);
+ALTER TABLE CARD ADD PAN_LAST4 VARCHAR2(4);
+ALTER TABLE CARD ADD PAN_HASH VARCHAR2(128);
+
+COMMIT;

@@ -1,0 +1,22 @@
+Frontend build (Next.js 13 / Node 20)
+=====================================
+
+Source is under: frontend/cms-frontend/
+
+1. Install dependencies
+   cd frontend/cms-frontend
+   npm ci --legacy-peer-deps
+   (or: npm install)
+
+2. Set API URL for the browser build
+   set NEXT_PUBLIC_API_BASE_URL=http://YOUR_BACKEND_HOST:8015
+   (PowerShell: $env:NEXT_PUBLIC_API_BASE_URL="http://YOUR_BACKEND_HOST:8015")
+
+3. Build
+   npm run build:skip-lint
+
+4. Run
+   npm start
+   UI: http://localhost:3000
+
+Backend must be reachable at NEXT_PUBLIC_API_BASE_URL (default API port 8015).

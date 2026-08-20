@@ -1,0 +1,347 @@
+// Scoped to LoginPage — LasPay red & black full brand design
+// (same split layout as the previous blue login).
+
+$brand-red: #e31e24;
+$brand-red-soft: #c85a5c;
+$brand-black: #1a1a1a;
+$brand-charcoal: #2e2e2e;
+$text-color: #3f3f46;
+$text-secondary: #71717a;
+$surface-card: #ffffff;
+$focus-ring: rgba(227, 30, 36, 0.22);
+
+$radius-control: 8px;
+$radius-panel: 14px;
+
+$font-heading: 'Poppins', sans-serif;
+$font-body: 'Inter', sans-serif;
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes markFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.wrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: $brand-black;
+  font-family: $font-body;
+}
+
+// ---------- Left: red & black brand panel ----------
+
+.brandPanel {
+  position: relative;
+  flex: 1 1 52%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 4rem 3.5rem;
+  overflow: hidden;
+  background: linear-gradient(155deg, $brand-black 0%, #2a1516 42%, $brand-red 135%);
+  color: #ffffff;
+  animation: panelIn 0.5s ease-out;
+}
+
+.brandPattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.95;
+  pointer-events: none;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    radial-gradient(ellipse 80% 55% at 70% 20%, rgba(227, 30, 36, 0.35), transparent 60%),
+    linear-gradient(
+      14deg,
+      transparent 0 40%,
+      rgba(255, 255, 255, 0.04) 40% 56%,
+      transparent 56% 100%
+    );
+  background-size:
+    24px 24px,
+    100% 100%,
+    140% 140%;
+}
+
+.brandLogoCorner {
+  position: absolute;
+  z-index: 2;
+  top: 1.75rem;
+  left: 1.75rem;
+  height: 2.15rem;
+  width: auto;
+  border-radius: 0.55rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.brandContent {
+  position: relative;
+  z-index: 1;
+  max-width: 440px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.brandMark {
+  height: 5.25rem;
+  width: auto;
+  border-radius: 0.85rem;
+  animation: markFloat 5s ease-in-out infinite;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+.wordmark {
+  font-family: $font-heading;
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  margin: 0;
+  color: #ffffff;
+}
+
+.wordmarkLas {
+  font-weight: 700;
+}
+
+.wordmarkPay {
+  font-weight: 400;
+  opacity: 0.92;
+}
+
+.headline {
+  font-family: $font-heading;
+  font-weight: 600;
+  font-size: 1.35rem;
+  line-height: 1.35;
+  margin: 0.25rem 0 0;
+  color: #ffffff !important;
+}
+
+.subline {
+  font-family: $font-body;
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72) !important;
+  margin: 0;
+  max-width: 26rem;
+}
+
+.brandFooter {
+  position: absolute;
+  z-index: 1;
+  left: 3.5rem;
+  right: 3.5rem;
+  bottom: 2.5rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.45) !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+// ---------- Right: form panel ----------
+
+.formPanel {
+  flex: 1 1 48%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $surface-card;
+  padding: 2.5rem 2rem;
+}
+
+.formCard {
+  width: 100%;
+  max-width: 400px;
+  animation: panelIn 0.5s ease-out 0.05s both;
+}
+
+.formHeader {
+  margin-bottom: 2rem;
+}
+
+.mobileBrand {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
+}
+
+.mobileLogo {
+  height: 2.35rem;
+  width: auto;
+}
+
+.mobileWordmark {
+  font-family: $font-heading;
+  font-size: 1.35rem;
+  color: $brand-charcoal;
+  letter-spacing: 0.02em;
+}
+
+.formTitle {
+  font-family: $font-heading;
+  font-weight: 600;
+  font-size: 1.5rem;
+  color: $text-color;
+  margin: 0 0 0.5rem;
+}
+
+.secureCue {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: $text-secondary;
+
+  i {
+    font-size: 0.8125rem;
+    color: $brand-red-soft;
+  }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  :global(.p-inputtext),
+  :global(.p-password),
+  :global(.p-password-input) {
+    width: 100%;
+    border-radius: $radius-control;
+  }
+
+  :global(.p-inputtext:focus),
+  :global(.p-password-input:focus) {
+    box-shadow: 0 0 0 3px $focus-ring;
+    border-color: $brand-red;
+  }
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: $text-color;
+}
+
+.fieldError {
+  color: $brand-red;
+  font-size: 0.75rem;
+}
+
+.rememberRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: -0.5rem;
+}
+
+.rememberLabel {
+  font-size: 0.875rem;
+  color: $text-secondary;
+  cursor: pointer;
+}
+
+.errorBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: #fdf2f2;
+  border: 1px solid #f5c2c2;
+  color: #9b1c1c;
+  border-radius: $radius-control;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+
+  i {
+    margin-top: 0.125rem;
+  }
+}
+
+.submitButton {
+  width: 100%;
+  border-radius: $radius-control;
+  font-family: $font-body;
+  font-weight: 600;
+  background: $brand-red !important;
+  border-color: $brand-red !important;
+  transition: transform 0.12s ease, filter 0.12s ease;
+
+  &:hover:not(:disabled) {
+    filter: brightness(0.94);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px $focus-ring;
+  }
+}
+
+@media (max-width: 900px) {
+  .wrapper {
+    background: $surface-card;
+  }
+
+  .brandPanel {
+    display: none;
+  }
+
+  .mobileBrand {
+    display: flex;
+  }
+
+  .formPanel {
+    padding: 1.5rem;
+  }
+
+  .formCard {
+    max-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brandPanel,
+  .formCard {
+    animation: none;
+  }
+
+  .brandMark {
+    animation: none;
+  }
+
+  .submitButton {
+    transition: none;
+  }
+}

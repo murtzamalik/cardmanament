@@ -1,0 +1,80 @@
+name: Build and Deploy cms (Docker)
+
+on:
+  push:
+    branches:
+      - pre-prod
+  workflow_dispatch:
+
+env:
+  SERVICE_NAME: cms
+  CONTAINER_NAME: barakat-cms
+  SERVICE_PORT: "8016"
+  DEPLOY_PATH: /var/www/barakatpay/cms
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Archive source
+        run: |
+          tar --exclude='target' --exclude='.git' -czf ../deploy.tar.gz -C . .
+          mv ../deploy.tar.gz ./deploy.tar.gz
+      - name: Prepare deploy directory
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PRIVATE_SERVER_HOST }}
+          username: ${{ secrets.PRIVATE_SERVER_USER }}
+          password: ${{ secrets.PRIVATE_SERVER_PASSWORD }}
+          proxy_host: ${{ secrets.BASTION_HOST }}
+          proxy_username: ${{ secrets.BASTION_USER }}
+          proxy_password: ${{ secrets.BASTION_PASSWORD }}
+          # Drop the old source tree first: the tar unpacks on top of whatever the last
+          # deploy left, so a renamed package survives as a second @SpringBootApplication
+          # and `repackage` fails with "Unable to find a single main class".
+          script: |
+            rm -rf ${{ env.DEPLOY_PATH }}/src
+            mkdir -p ${{ env.DEPLOY_PATH }}
+
+      - name: Upload source archive
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PRIVATE_SERVER_HOST }}
+          username: ${{ secrets.PRIVATE_SERVER_USER }}
+          password: ${{ secrets.PRIVATE_SERVER_PASSWORD }}
+          proxy_host: ${{ secrets.BASTION_HOST }}
+          proxy_username: ${{ secrets.BASTION_USER }}
+          proxy_password: ${{ secrets.BASTION_PASSWORD }}
+          source: deploy.tar.gz
+          target: ${{ env.DEPLOY_PATH }}
+          overwrite: true
+
+      - name: Build image and restart container
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PRIVATE_SERVER_HOST }}
+          username: ${{ secrets.PRIVATE_SERVER_USER }}
+          password: ${{ secrets.PRIVATE_SERVER_PASSWORD }}
+          proxy_host: ${{ secrets.BASTION_HOST }}
+          proxy_username: ${{ secrets.BASTION_USER }}
+          proxy_password: ${{ secrets.BASTION_PASSWORD }}
+          command_timeout: 30m
+          script: |
+            set -e
+            docker network inspect barakat-net >/dev/null 2>&1 || docker network create barakat-net
+            cd ${{ env.DEPLOY_PATH }}
+            tar -xzf deploy.tar.gz && rm -f deploy.tar.gz
+            docker build -t ${{ env.CONTAINER_NAME }}:latest .
+            docker rm -f ${{ env.CONTAINER_NAME }} 2>/dev/null || true
+            docker run -d \
+              --name ${{ env.CONTAINER_NAME }} \
+              --restart unless-stopped \
+              --network barakat-net \
+              -p ${{ env.SERVICE_PORT }}:${{ env.SERVICE_PORT }} \
+              --env-file /var/www/barakatpay/.env \
+              ${{ env.CONTAINER_NAME }}:latest
+            docker image prune -f

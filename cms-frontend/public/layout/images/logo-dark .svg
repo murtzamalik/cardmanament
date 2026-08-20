@@ -1,0 +1,5 @@
+<svg width="172" height="40" viewBox="0 0 172 40" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CMS">
+  <path d="M 34.5 26.76 A 16 16 0 1 0 34.5 13.24" fill="none" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+  <rect x="27" y="22" width="8" height="10" rx="2" fill="#1e40af"/>
+  <text x="54" y="27" font-family="Poppins, 'Helvetica Neue', Arial, sans-serif" font-weight="700" font-size="21" letter-spacing="1.5" fill="#0f172a">CMS</text>
+</svg>

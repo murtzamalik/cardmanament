@@ -1,0 +1,7 @@
+﻿**/node_modules/
+**/target/
+**/.next/
+**/dist/
+**/.env
+**/*.env
+**/cms.env

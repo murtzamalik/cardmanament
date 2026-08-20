@@ -1,0 +1,23 @@
+Database dump — manual
+======================
+
+This pack does NOT include an Oracle dump. Add yours under:
+
+  database/dump/
+
+Suggested files:
+  CMS_YYYYMMDD.dmp          (Data Pump)
+  CMS_YYYYMMDD_exp.log
+  restore-notes.txt         (impdp commands you used)
+
+Schema / seed SQL from the app (Flyway migrations) is already copied to:
+
+  database/schema-migrations/
+
+Note: application.properties currently has spring.flyway.enabled=false.
+If the target DB is empty, either:
+  - run the SQL scripts manually in order (V1, V2, …), or
+  - enable Flyway for first bootstrap, then turn it off again per your ops policy.
+
+Do not put production cardholder data (PAN/CVV) in email attachments.
+Use a secure share for dumps that contain sensitive data.

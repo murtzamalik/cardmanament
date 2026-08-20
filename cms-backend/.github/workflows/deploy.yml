@@ -1,0 +1,101 @@
+name: Build and Deploy cms-backend (Docker)
+
+on:
+  push:
+    branches:
+      - pre-prod
+  workflow_dispatch:
+
+env:
+  SERVICE_NAME: cms-backend
+  CONTAINER_NAME: barakat-cms-backend
+  SERVICE_PORT: "8015"
+  DEPLOY_PATH: /var/www/barakatpay/cms-backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Archive source
+        run: |
+          tar --exclude='target' --exclude='.git' -czf ../deploy.tar.gz -C . .
+          mv ../deploy.tar.gz ./deploy.tar.gz
+
+      - name: Prepare deploy directory
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PRIVATE_SERVER_HOST }}
+          username: ${{ secrets.PRIVATE_SERVER_USER }}
+          password: ${{ secrets.PRIVATE_SERVER_PASSWORD }}
+          proxy_host: ${{ secrets.BASTION_HOST }}
+          proxy_username: ${{ secrets.BASTION_USER }}
+          proxy_password: ${{ secrets.BASTION_PASSWORD }}
+          script: mkdir -p ${{ env.DEPLOY_PATH }}
+
+      - name: Upload source archive
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PRIVATE_SERVER_HOST }}
+          username: ${{ secrets.PRIVATE_SERVER_USER }}
+          password: ${{ secrets.PRIVATE_SERVER_PASSWORD }}
+          proxy_host: ${{ secrets.BASTION_HOST }}
+          proxy_username: ${{ secrets.BASTION_USER }}
+          proxy_password: ${{ secrets.BASTION_PASSWORD }}
+          source: deploy.tar.gz
+          target: ${{ env.DEPLOY_PATH }}
+          overwrite: true
+
+      - name: Build image and restart container
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PRIVATE_SERVER_HOST }}
+          username: ${{ secrets.PRIVATE_SERVER_USER }}
+          password: ${{ secrets.PRIVATE_SERVER_PASSWORD }}
+          proxy_host: ${{ secrets.BASTION_HOST }}
+          proxy_username: ${{ secrets.BASTION_USER }}
+          proxy_password: ${{ secrets.BASTION_PASSWORD }}
+          command_timeout: 30m
+          script: |
+            set -e
+            docker network inspect barakat-net >/dev/null 2>&1 || docker network create barakat-net
+            cd ${{ env.DEPLOY_PATH }}
+            tar -xzf deploy.tar.gz && rm -f deploy.tar.gz
+            docker image prune -f || true
+            DOCKER_BUILDKIT=0 docker build -t ${{ env.CONTAINER_NAME }}:latest .
+            docker rm -f ${{ env.CONTAINER_NAME }} 2>/dev/null || true
+            # Do NOT source .env (passwords with # break shell). Parse CMS_DB_* safely.
+            ENV_FILE=/var/www/barakatpay/.env
+            get_env() {
+              local key="$1"
+              local line
+              line=$(grep -E "^${key}=" "$ENV_FILE" | tail -n1) || true
+              [ -n "$line" ] || return 0
+              line="${line#${key}=}"
+              line="${line#\'}"; line="${line%\'}"
+              line="${line#\"}"; line="${line%\"}"
+              printf '%s' "$line"
+            }
+            CMS_DB_URL="$(get_env CMS_DB_URL)"
+            CMS_DB_USERNAME="$(get_env CMS_DB_USERNAME)"
+            CMS_DB_PASSWORD="$(get_env CMS_DB_PASSWORD)"
+            if [ -z "$CMS_DB_URL" ] || [ -z "$CMS_DB_USERNAME" ] || [ -z "$CMS_DB_PASSWORD" ]; then
+              echo "FATAL: CMS_DB_URL / CMS_DB_USERNAME / CMS_DB_PASSWORD must be set in $ENV_FILE"
+              exit 1
+            fi
+            docker run -d \
+              --name ${{ env.CONTAINER_NAME }} \
+              --restart unless-stopped \
+              --network barakat-net \
+              -p ${{ env.SERVICE_PORT }}:${{ env.SERVICE_PORT }} \
+              --env-file "$ENV_FILE" \
+              -e "SPRING_DATASOURCE_URL=${CMS_DB_URL}" \
+              -e "SPRING_DATASOURCE_USERNAME=${CMS_DB_USERNAME}" \
+              -e "SPRING_DATASOURCE_PASSWORD=${CMS_DB_PASSWORD}" \
+              -e SPRING_FLYWAY_ENABLED=true \
+              -e SPRING_FLYWAY_BASELINE_ON_MIGRATE=false \
+              ${{ env.CONTAINER_NAME }}:latest
+            docker image prune -f

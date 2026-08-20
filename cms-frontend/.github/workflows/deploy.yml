@@ -1,0 +1,78 @@
+name: Build and Deploy CMS Frontend
+
+on:
+  push:
+    branches:
+      - pre-prod
+  workflow_dispatch:
+
+env:
+  DEPLOY_PATH: /var/www/cms
+  NODE_VERSION: '18'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies and build
+        run: |
+          if [ -z "$NEXT_PUBLIC_API_BASE_URL" ]; then
+            echo "::warning::CMS_API_BASE_URL variable is empty — build will fall back to http://localhost:8080"
+          else
+            echo "Building with API base: $NEXT_PUBLIC_API_BASE_URL"
+          fi
+          npm ci
+          npm run build
+          # next export writes to out/ (gitignored — do not scp out/** directly)
+          test -d out && test -n "$(ls -A out)" || {
+            echo "::error::out/ missing or empty after next build (is output: 'export' in next.config.js?)"
+            ls -la
+            exit 1
+          }
+          tar -czf deploy.tar.gz -C out .
+          ls -lh deploy.tar.gz
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.CMS_API_BASE_URL }}
+
+      - name: Prepare deploy directory
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.GATEWAY_SSH_HOST }}
+          username: ${{ secrets.GATEWAY_SSH_USER }}
+          password: ${{ secrets.GATEWAY_SSH_PASSWORD }}
+          script: |
+            mkdir -p ${{ env.DEPLOY_PATH }}
+            rm -rf ${{ env.DEPLOY_PATH }}/*
+
+      - name: Upload static build archive
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.GATEWAY_SSH_HOST }}
+          username: ${{ secrets.GATEWAY_SSH_USER }}
+          password: ${{ secrets.GATEWAY_SSH_PASSWORD }}
+          source: deploy.tar.gz
+          target: ${{ env.DEPLOY_PATH }}/
+          overwrite: true
+
+      - name: Extract static files
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.GATEWAY_SSH_HOST }}
+          username: ${{ secrets.GATEWAY_SSH_USER }}
+          password: ${{ secrets.GATEWAY_SSH_PASSWORD }}
+          script: |
+            set -e
+            cd ${{ env.DEPLOY_PATH }}
+            tar -xzf deploy.tar.gz
+            rm -f deploy.tar.gz
+            ls -la | head -20
